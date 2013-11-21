@@ -20,13 +20,14 @@
 LOCAL_PATH:= $(call my-dir)
 
 ifneq ($(APPLY_EFS_PATCHES),)
-APPLY_EFS_PATCHES:= $(shell vendor/intel/efs-tools/android_integration/apply_patches.sh)
+APPLY_EFS_PATCHES:= $(shell $(LOCAL_PATH)/android_integration/apply_patches.sh)
 endif
 
-lib_keyutil_src:= \
-	lib/keyutil/keyutil.c
-
-lib_efs_src_files:= \
+# libefs shared library
+include $(CLEAR_VARS)
+LOCAL_MODULE := libefs
+LOCAL_MODULE_TAGS := optional
+LOCAL_SRC_FILES:= \
 	src/efs.c \
 	src/android_user_encryption.c \
 	src/key_chain.c \
@@ -35,56 +36,36 @@ lib_efs_src_files:= \
 	src/process.c \
 	src/crypto.c \
 	src/key_store.c
-
-lib_efs_init:= init/libefs_init.c
-
-lib_efs_c_includes := \
-	external/openssl/include \
-	vendor/intel/efs-tools/include
-
-lib_efs_shared_libraries := \
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/src/include \
+	$(LOCAL_PATH)/external \
+	external/openssl/include
+LOCAL_SHARED_LIBRARIES := \
 	libcrypto \
 	libkeyutil \
 	libcutils \
 	liblog
-
-efs_tools_src_files:= \
-	src/test.c
-
-efs_tools_shared_libraries := \
-	libefs
-
-# keyutil shared library
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES += $(lib_keyutil_src)
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE:= libkeyutil
-include $(BUILD_SHARED_LIBRARY)
-
-# libefs shared library
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES += $(lib_efs_src_files)
-LOCAL_C_INCLUDES += $(lib_efs_c_includes)
 LOCAL_CFLAGS += -Wall
-LOCAL_SHARED_LIBRARIES += $(lib_efs_shared_libraries)
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE:= libefs
 include $(BUILD_SHARED_LIBRARY)
 
 # libefs_init - small static library to be built with init
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES += $(lib_efs_init)
-LOCAL_CFLAGS += -Wall
+LOCAL_MODULE := libefs_init
 LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE:= libefs_init
+LOCAL_SRC_FILES += src/init.c
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
+LOCAL_CFLAGS += -Wall
 include $(BUILD_STATIC_LIBRARY)
 
 # libefs testing tool
 include $(CLEAR_VARS)
 LOCAL_MODULE:= efs-tools
 LOCAL_MODULE_TAGS := optional
-LOCAL_C_INCLUDES += $(lib_efs_c_includes)
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
 LOCAL_CFLAGS += -Wall
-LOCAL_SRC_FILES := $(efs_tools_src_files)
-LOCAL_SHARED_LIBRARIES := $(efs_tools_shared_libraries)
+LOCAL_SRC_FILES := src/main.c
+LOCAL_SHARED_LIBRARIES := libefs
 include $(BUILD_EXECUTABLE)
+
+#keyutil shared library
+include $(LOCAL_PATH)/external/keyutil/Android.mk

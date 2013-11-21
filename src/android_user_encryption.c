@@ -31,7 +31,10 @@
 #include <efs/key_store.h>
 #include <efs/mount_utils.h>
 #include <efs/android_user_encryption.h>
+#include <efs/init.h>
 #include "cutils/android_reboot.h"
+
+#define MNT_FORCE       0x00000001
 
 /**
  * Stop Android services
@@ -76,14 +79,12 @@ int android_encrypt_user_data(int user, char *password)
 {
     char data_path[MAX_PATH_LENGTH], media_path[MAX_PATH_LENGTH], buf[10];
     off_t size = 0, total_size = 0;
-    int ret = 0;
+    int ret = -1;
 
     LOGI("Encrypt user data for %d", user);
 
     android_stop_services();
-    property_set("vold.post_fs_data_done", "0");
-    property_set("vold.decrypt", "trigger_post_fs_data");
-    sleep(20);
+    sleep(5);
 
     memset(data_path, 0, sizeof(data_path));
     sprintf(data_path, "%s%d", ANDROID_USER_DATA_PATH, user);
@@ -122,17 +123,96 @@ int android_encrypt_user_data(int user, char *password)
         return ret;
     }
 
+    if (user == PRIMARY_USER) {
+        android_reboot(ANDROID_RB_RESTART, 0, 0);
+    }
+
     ret = android_unlock_user_data(user, password);
     if (ret < 0) {
         LOGE("Unable to unlock user data %d", user);
         return ret;
     }
 
-    if (user == PRIMARY_USER) {
-        android_reboot(ANDROID_RB_RESTART, 0, 0);
+    android_start_services();
+
+    return 0;
+}
+
+static int android_unlock_primary_user(char *password)
+{
+    char storage_path[MAX_PATH_LENGTH];
+    char private_dir_path[MAX_PATH_LENGTH];
+    struct crypto_header header;
+    int ret;
+
+    ret = read_crypto_header(&header, CRYPTO_HEADER_COPY);
+    if (ret < 0)
+        return ret;
+
+    ret = check_passwd(&header, password);
+    if (ret < 0)
+        return ret;
+
+    property_set("vold.decrypt", "trigger_reset_main");
+    sleep(2);
+    umount("/data", MNT_FORCE);
+
+    memset(storage_path, 0, sizeof(storage_path));
+    sprintf(storage_path, "%s%d", ANDROID_USER_DATA_PATH, PRIMARY_USER);
+
+    ret = get_private_storage_path(private_dir_path, storage_path);
+    if (ret < 0) {
+        LOGE("Error getting private storage for %s", storage_path);
+        return ret;
     }
 
-    android_start_services();
+    ret = access(private_dir_path, F_OK);
+    if (ret < 0) {
+        LOGE("Private storage %s does not exist", private_dir_path);
+        return ret;
+    }
+
+    if (check_fs_mounted(private_dir_path) == 1) {
+        LOGE("ecryptfs is already mounted on %s", storage_path);
+        return 0;
+    }
+
+    ret = remove_dir_content(storage_path);
+    if (ret < 0) {
+        LOGE("Error removing data from %s directory", storage_path);
+        return ret;
+    }
+
+    ret = EFS_unlock(storage_path, password);
+    if (ret < 0) {
+        LOGE("Error unlocking efs storage %s", storage_path);
+        return ret;
+    }
+
+    memset(storage_path, 0, sizeof(storage_path));
+    sprintf(storage_path, "%s%d", ANDROID_VIRTUAL_SDCARD_PATH,
+        PRIMARY_USER);
+
+    if (check_fs_mounted(storage_path) == 1) {
+        LOGE("ecryptfs is already mounted on %s", storage_path);
+        return 0;
+    }
+
+    ret = remove_dir_content(storage_path);
+    if (ret < 0) {
+        LOGE("Error removing data from %s directory", storage_path);
+        return ret;
+    }
+
+    ret = EFS_unlock(storage_path, password);
+    if (ret < 0) {
+        LOGE("Error unlocking efs storage %s", storage_path);
+        return ret;
+    }
+
+    property_set("crypto.primary_user", "decrypted");
+    sleep(2);
+    property_set("vold.decrypt", "trigger_restart_framework");
 
     return 0;
 }
@@ -149,9 +229,14 @@ int android_unlock_user_data(int user, char *password)
 {
     char storage_path[MAX_PATH_LENGTH];
     char private_dir_path[MAX_PATH_LENGTH];
-    int ret;
+    int ret = -1;
 
     LOGI("Unlock user %d", user);
+
+    if (user == PRIMARY_USER) {
+        ret = android_unlock_primary_user(password);
+        return ret;
+    }
 
     memset(storage_path, 0, sizeof(storage_path));
     sprintf(storage_path, "%s%d", ANDROID_USER_DATA_PATH, user);
@@ -173,7 +258,6 @@ int android_unlock_user_data(int user, char *password)
         return 0;
     }
 
-    killProcessesWithOpenFiles(storage_path, 2);
     ret = remove_dir_content(storage_path);
     if (ret < 0) {
         LOGE("Error removing data from %s directory", storage_path);
@@ -194,7 +278,6 @@ int android_unlock_user_data(int user, char *password)
         return 0;
     }
 
-    killProcessesWithOpenFiles(storage_path, 2);
     ret = remove_dir_content(storage_path);
     if (ret < 0) {
         LOGE("Error removing data from %s directory", storage_path);
@@ -205,11 +288,6 @@ int android_unlock_user_data(int user, char *password)
     if (ret < 0) {
         LOGE("Error unlocking efs storage %s", storage_path);
         return ret;
-    }
-
-    if (user == PRIMARY_USER) {
-        property_set("crypto.primary_user", "decrypted");
-        android_restart_services();
     }
 
     return 0;

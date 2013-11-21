@@ -33,7 +33,7 @@
 #include <efs/key_chain.h>
 #include <efs/file_utils.h>
 #include <efs/efs.h>
-#include "lib/keyutil/keyutil.h"
+#include <keyutil/keyutil.h>
 
 /**
  * Generates an ecryptfs token

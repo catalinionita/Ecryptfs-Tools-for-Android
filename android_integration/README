@@ -1,0 +1,10 @@
+This file explains how to integrate EFS project with different Android components. It's written in FAQ style. For more questions drop an email to <catalin.ionita@intel.com>
+
+Why further integration is needed?
+Libefs is a shared library written in C that exports the encrypted file storage api. It's the heart of the EFS-Tools project. Android applications can't enjoy libefs API unless further steps are taken to ensure proper integration accross Android stack. The entry point for libefs is vold and vold is reponsible for propagating the API further. From the integration point of view we will have : libefs -> vold -> MountService -> Framework -> Apps  
+
+Why not pushing EFS integration patches and mantain them directly in their specific Android components?
+You can do that! All you have to do is run ./apply_patches. The problem is that the code is not part of AOSP (hopefully it will be at some point) and a new AOSP patch can fail to apply properly. If you have to maintain an Android tree this will be a nightmare. In the current setup, the patches allways apply at compile time so they get to be on top. Merging problems can still ocur... the good thing is that you only maintain libefs and not different Android components. 
+
+How can I apply integration patches?
+Patch apply is controlled by APPLY_EFS_PATCH build variable: make efs-tools APPLY_EFS_PATCHES=y -j8

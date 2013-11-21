@@ -56,8 +56,8 @@
  *
  * @return 0 for success, negative value in case of an error
  */
-static int mount_fs(const char *source, const char *target, const char *type,
-            unsigned long mountflags, char *opts)
+int mount_fs(const char *source, const char *target, const char *type,
+         unsigned long mountflags, char *opts)
 {
     int ret;
 
