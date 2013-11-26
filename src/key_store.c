@@ -131,7 +131,7 @@ int sanitize_storage_path(char *storage_path)
         return -1;
     }
     /* Remove end "/" */
-    for (; i > 0; i--) {
+    for (; i >= 0; i--) {
         if (storage_path[i] != '/')
             break;
         storage_path[i] = 0;
@@ -157,7 +157,7 @@ int sanitize_storage_path(char *storage_path)
  * @param path Key storage path
  * @param storage_path EFS storage path
  *
- * @return 0 on success, negative value on error
+ * @return positive value on success, negative value on error
  */
 int get_key_storage_path(char *path, char *storage_path)
 {

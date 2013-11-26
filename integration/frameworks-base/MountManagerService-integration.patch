@@ -1,0 +1,848 @@
+From f5561b8cc8854289e8b69b5bbc53893f0ad37979 Mon Sep 17 00:00:00 2001
+From: Catalin Ionita <catalin.ionita@intel.com>
+Date: Tue, 26 Nov 2013 15:10:50 +0200
+Subject: [PATCH] Efs integration with MountService
+
+---
+ core/java/android/os/storage/IMountService.java    |  562 +++++++++++++++++++-
+ services/java/com/android/server/MountService.java |  217 ++++++++
+ services/java/com/android/server/SystemServer.java |    5 +
+ 3 files changed, 783 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/os/storage/IMountService.java b/core/java/android/os/storage/IMountService.java
+index 51ba2f6..30672b8 100644
+--- a/core/java/android/os/storage/IMountService.java
++++ b/core/java/android/os/storage/IMountService.java
+@@ -755,7 +755,318 @@ public interface IMountService extends IInterface {
+                 }
+                 return _result;
+             }
+-        }
++
++            /**
++             * Create EFS Storage
++             */
++            public int createEfsStorage(String storagePath, String password)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeString(storagePath);
++                    _data.writeString(password);
++                    mRemote.transact(Stub.TRANSACTION_createEfsStorage, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * Unlock EFS storage
++             */
++            public int unlockEfsStorage(String storagePath, String password)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeString(storagePath);
++                    _data.writeString(password);
++                    mRemote.transact(Stub.TRANSACTION_unlockEfsStorage, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * Lock EFS Storage
++             */
++            public int lockEfsStorage(String storagePath)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeString(storagePath);
++                    mRemote.transact(Stub.TRANSACTION_lockEfsStorage, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * Change EFS  storage passwd
++             */
++            public int changePasswordEfsStorage(String storagePath, String oldPassword, String newPassword)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeString(storagePath);
++                    _data.writeString(oldPassword);
++                    _data.writeString(newPassword);
++                    mRemote.transact(Stub.TRANSACTION_changePasswordEfsStorage, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++
++            /**
++             * Remove EFS Storage
++             */
++            public int removeEfsStorage(String storagePath)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeString(storagePath);
++                    mRemote.transact(Stub.TRANSACTION_removeEfsStorage, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * get EFS Storage status
++             */
++            public int getEfsStorageStat(String storagePath)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeString(storagePath);
++                    mRemote.transact(Stub.TRANSACTION_getEfsStorageStat, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * recover EFS storage encrypted data and remove storage
++             */
++            public int recoverDataAndRemoveEfsStorage(String storagePath, String password)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeString(storagePath);
++                    _data.writeString(password);
++                    mRemote.transact(Stub.TRANSACTION_recoverDataAndRemoveEfsStorage, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * Encrypt user data
++             */
++            public int encryptUserData(int userId, String password)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(userId);
++                    _data.writeString(password);
++                    mRemote.transact(Stub.TRANSACTION_encryptUserData, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++
++
++            /**
++             * unlock user data
++             */
++            public int unlockUserData(int userId, String password)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(userId);
++                    _data.writeString(password);
++                    mRemote.transact(Stub.TRANSACTION_unlockUserData, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * Lock user data
++             */
++            public int lockUserData(int userId)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(userId);
++                    mRemote.transact(Stub.TRANSACTION_lockUserData, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * Change user data password
++             */
++            public int changeUserDataPassword(int userId, String oldPassword, String newPassword)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(userId);
++                    _data.writeString(oldPassword);
++                    _data.writeString(newPassword);
++                    mRemote.transact(Stub.TRANSACTION_changeUserDataPassword, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++
++            /**
++             * Remove user encrypted data
++             */
++            public int removeUserEncryptedData(int userId)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(userId);
++                    mRemote.transact(Stub.TRANSACTION_removeUserEncryptedData, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * Get user encrypted data status
++             */
++            public int getUserEncryptedDataStat(int userId)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(userId);
++                    mRemote.transact(Stub.TRANSACTION_getUserEncryptedDataStat, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++            /**
++             * decrypt user data
++             */
++            public int decryptUserData(int userId, String password)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(userId);
++                    _data.writeString(password);
++                    mRemote.transact(Stub.TRANSACTION_decryptUserData, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
++
++          }
++
++
+ 
+         private static final String DESCRIPTOR = "IMountService";
+ 
+@@ -829,6 +1140,34 @@ public interface IMountService extends IInterface {
+ 
+         static final int TRANSACTION_mkdirs = IBinder.FIRST_CALL_TRANSACTION + 34;
+ 
++        static final int TRANSACTION_createEfsStorage = IBinder.FIRST_CALL_TRANSACTION + 35;
++
++        static final int TRANSACTION_unlockEfsStorage = IBinder.FIRST_CALL_TRANSACTION + 36;
++
++        static final int TRANSACTION_lockEfsStorage = IBinder.FIRST_CALL_TRANSACTION + 37;
++
++        static final int TRANSACTION_changePasswordEfsStorage = IBinder.FIRST_CALL_TRANSACTION + 38;
++
++        static final int TRANSACTION_removeEfsStorage = IBinder.FIRST_CALL_TRANSACTION + 39;
++
++        static final int TRANSACTION_getEfsStorageStat = IBinder.FIRST_CALL_TRANSACTION + 40;
++
++        static final int TRANSACTION_recoverDataAndRemoveEfsStorage = IBinder.FIRST_CALL_TRANSACTION + 41;
++
++        static final int TRANSACTION_encryptUserData = IBinder.FIRST_CALL_TRANSACTION + 42;
++
++        static final int TRANSACTION_unlockUserData = IBinder.FIRST_CALL_TRANSACTION + 43;
++
++        static final int TRANSACTION_lockUserData = IBinder.FIRST_CALL_TRANSACTION + 44;
++
++        static final int TRANSACTION_changeUserDataPassword= IBinder.FIRST_CALL_TRANSACTION + 45;
++
++        static final int TRANSACTION_removeUserEncryptedData = IBinder.FIRST_CALL_TRANSACTION + 46;
++
++        static final int TRANSACTION_decryptUserData = IBinder.FIRST_CALL_TRANSACTION + 47;
++
++        static final int TRANSACTION_getUserEncryptedDataStat = IBinder.FIRST_CALL_TRANSACTION + 48;
++
+         /**
+          * Cast an IBinder object into an IMountService interface, generating a
+          * proxy if needed.
+@@ -1181,6 +1520,141 @@ public interface IMountService extends IInterface {
+                     reply.writeInt(result);
+                     return true;
+                 }
++            case TRANSACTION_createEfsStorage: {
++				data.enforceInterface(DESCRIPTOR);
++				String storagePath;
++				storagePath = data.readString();
++				String password;
++				password = data.readString();
++				int resultCode = createEfsStorage(storagePath, password);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_unlockEfsStorage: {
++				data.enforceInterface(DESCRIPTOR);
++				String storagePath;
++				storagePath = data.readString();
++				String password;
++				password = data.readString();
++				int resultCode = unlockEfsStorage(storagePath, password);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_lockEfsStorage: {
++				data.enforceInterface(DESCRIPTOR);
++				String storagePath;
++				storagePath = data.readString();
++				int resultCode = lockEfsStorage(storagePath);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_changePasswordEfsStorage: {
++				data.enforceInterface(DESCRIPTOR);
++				String storagePath;
++				storagePath = data.readString();
++				String oldPassword;
++				oldPassword = data.readString();
++				String newPassword;
++				newPassword = data.readString();
++				int resultCode = changePasswordEfsStorage(storagePath, oldPassword, newPassword);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_removeEfsStorage: {
++				data.enforceInterface(DESCRIPTOR);
++				String storagePath;
++				storagePath = data.readString();
++				int resultCode = removeEfsStorage(storagePath);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_getEfsStorageStat: {
++				data.enforceInterface(DESCRIPTOR);
++				String storagePath;
++				storagePath = data.readString();
++				int resultCode = getEfsStorageStat(storagePath);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_encryptUserData: {
++				data.enforceInterface(DESCRIPTOR);
++				int userId;
++				userId = data.readInt();
++				String password;
++				password = data.readString();
++				int resultCode = encryptUserData(userId, password);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++			case TRANSACTION_unlockUserData: {
++				data.enforceInterface(DESCRIPTOR);
++				int userId;
++				userId = data.readInt();
++				String password;
++				password = data.readString();
++				int resultCode = unlockUserData(userId, password);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_lockUserData: {
++				data.enforceInterface(DESCRIPTOR);
++				int userId;
++				userId = data.readInt();
++				int resultCode = lockUserData(userId);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_changeUserDataPassword: {
++				data.enforceInterface(DESCRIPTOR);
++				int userId;
++				userId = data.readInt();
++				String oldPassword;
++				oldPassword = data.readString();
++				String newPassword;
++				newPassword = data.readString();
++				int resultCode = changeUserDataPassword(userId, oldPassword, newPassword);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_removeUserEncryptedData: {
++				data.enforceInterface(DESCRIPTOR);
++				int userId;
++				userId = data.readInt();
++				int resultCode = removeUserEncryptedData(userId);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++            case TRANSACTION_getUserEncryptedDataStat: {
++				data.enforceInterface(DESCRIPTOR);
++				int userId;
++				userId = data.readInt();
++				int resultCode = getUserEncryptedDataStat(userId);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
++			case TRANSACTION_decryptUserData: {
++				data.enforceInterface(DESCRIPTOR);
++				int userId;
++				userId = data.readInt();
++				String password;
++				password = data.readString();
++				int resultCode = decryptUserData(userId, password);
++				reply.writeNoException();
++				reply.writeInt(resultCode);
++				return true;
++			}
+             }
+             return super.onTransact(code, data, reply, flags);
+         }
+@@ -1412,4 +1886,90 @@ public interface IMountService extends IInterface {
+      * external storage data or OBB directory belonging to calling app.
+      */
+     public int mkdirs(String callingPkg, String path) throws RemoteException;
++
++
++    /*
++     * Create EFS storage
++     */
++    public int createEfsStorage(String storagePath, String password)
++		throws RemoteException;
++
++    /*
++     * Unlock EFS storage
++     */
++    public int unlockEfsStorage(String storagePath, String password)
++		throws RemoteException;
++
++    /*
++     * Lock EFS storage
++     */
++    public int lockEfsStorage(String storagePath)
++		throws RemoteException;
++
++    /*
++     * Change EFS storage password
++     */
++    public int changePasswordEfsStorage(String storagePath, String oldPassword, String newPassword)
++		throws RemoteException;
++
++    /*
++     * Recover EFS storage data and remove EFS storage
++     */
++    public int recoverDataAndRemoveEfsStorage(String storagePath, String password)
++		throws RemoteException;
++
++    /*
++     * Remove EFS storage
++     */
++    public int removeEfsStorage(String storagePath)
++		throws RemoteException;
++
++    /*
++     * get EFS storage status
++     */
++    public int getEfsStorageStat(String storagePath)
++		throws RemoteException;
++
++    /*
++     * Encrypt user data
++     */
++    public int encryptUserData(int userId, String password)
++		throws RemoteException;
++
++    /*
++     * Unlock user data
++     */
++    public int unlockUserData(int userId, String password)
++		throws RemoteException;
++
++    /*
++     * lock user data
++     */
++    public int lockUserData(int userId)
++		throws RemoteException;
++
++    /*
++     * change user data password
++     */
++    public int changeUserDataPassword(int userId, String oldPassword, String newPassword)
++		throws RemoteException;
++
++    /*
++     * remove user encrypted data
++     */
++    public int removeUserEncryptedData(int userId)
++		throws RemoteException;
++
++    /*
++     * get user encrypted data status
++     */
++    public int getUserEncryptedDataStat(int userId)
++		throws RemoteException;
++
++    /*
++     * decrypt user data
++     */
++    public int decryptUserData(int userId, String password)
++		throws RemoteException;
++
+ }
+diff --git a/services/java/com/android/server/MountService.java b/services/java/com/android/server/MountService.java
+index c7ca1ea..e582acd 100644
+--- a/services/java/com/android/server/MountService.java
++++ b/services/java/com/android/server/MountService.java
+@@ -2799,4 +2799,221 @@ class MountService extends IMountService.Stub
+             mConnector.monitor();
+         }
+     }
++
++
++
++    public int createEfsStorage(String storagePath, String password) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "create", storagePath, password);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int unlockEfsStorage(String storagePath, String password) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "unlock", storagePath, password);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++
++    public int lockEfsStorage(String storagePath) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "lock", storagePath);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int changePasswordEfsStorage(String storagePath, String oldPassword, String newPassword) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "change_passwd", storagePath, oldPassword, newPassword);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int removeEfsStorage(String storagePath) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "remove", storagePath);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int getEfsStorageStat(String storagePath) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "stat", storagePath);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int recoverDataAndRemoveEfsStorage(String storagePath, String password) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "recover", storagePath, password);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++
++    public int encryptUserData(int userId, String password) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "encrypt_user_data", userId, password);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int unlockUserData(int userId, String password) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "unlock_user_data", userId, password);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++
++    public int lockUserData(int userId) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "lock_user_data", userId);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int changeUserDataPassword(int userId, String oldPassword, String newPassword) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "change_user_data_passwd", userId, oldPassword, newPassword);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int removeUserEncryptedData(int userId) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "remove_user_encrypted_data", userId);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int decryptUserData(int userId, String password) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "decrypt_user_data", userId, password);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++    public int getUserEncryptedDataStat(int userId) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "user_stat", userId);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
++
++
+ }
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+index bb14259..30544ed 100644
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -237,6 +237,11 @@ class ServerThread {
+                 onlyCore = true;
+             }
+ 
++            final String primaryUserEncrypted = SystemProperties.get("crypto.primary_user");
++            if (("encrypted".equals(primaryUserEncrypted))) {
++                onlyCore = true;
++            }
++
+             pm = PackageManagerService.main(context, installer,
+                     factoryTest != SystemServer.FACTORY_TEST_OFF,
+                     onlyCore);
+-- 
+1.7.9.5
+

@@ -88,9 +88,9 @@ static int generate_file_list(const char *path, file_info ** file_list,
     struct dirent *dirent;
     struct stat st;
     int len;
-    /* Big buffer to prevent overflows */
-    char file_path[MAX_PATH_LENGTH + MAX_FILE_LENGTH + 1];
+    char *file_path;
     file_info *node;
+    int ret = -1;
 
     len = strlen(path);
     if (len > MAX_PATH_LENGTH) {
@@ -124,25 +124,40 @@ static int generate_file_list(const char *path, file_info ** file_list,
             }
         }
 
+        file_path =
+            (char *)malloc(MAX_PATH_LENGTH + MAX_FILE_LENGTH + 1);
+        if (!file_path) {
+            LOGE("insufficient memory\n");
+            exit(EXIT_FAILURE);
+        }
+        memset(file_path, 0, MAX_PATH_LENGTH + MAX_FILE_LENGTH + 1);
         strcpy(file_path, path);
-        file_path[len] = '/';
+        *(file_path + len) = '/';
         strcpy(file_path + len + 1, dirent->d_name);
 
-        if (lstat(file_path, &st)) {
+        ret = lstat(file_path, &st);
+        if (ret < 0) {
             LOGE("lstat failed on %s\n", file_path);
             closedir(dir);
-            return -1;
+            return ret;
         }
 
         node = create_node(file_path, &st);
         if (dirent->d_type == DT_DIR) {
             node->next = *dir_list;
             *dir_list = node;
-            generate_file_list(file_path, file_list, dir_list);
+            ret =
+                generate_file_list(file_path, file_list, dir_list);
+            if (ret < 0) {
+                free(file_path);
+                return ret;
+            }
         } else {
             node->next = *file_list;
             *file_list = node;
         }
+
+        free(file_path);
     }
 
     closedir(dir);
@@ -162,9 +177,8 @@ int get_dir_size(char *path, off_t * size)
     DIR *dir;
     struct dirent *dirent;
     struct stat st;
-    int len;
-    /* Big buffer to prevent overflows */
-    char file_path[MAX_PATH_LENGTH + MAX_FILE_LENGTH + 1];
+    int len, ret = -1;
+    char *file_path;
 
     len = strlen(path);
     if (len > MAX_PATH_LENGTH) {
@@ -199,21 +213,32 @@ int get_dir_size(char *path, off_t * size)
             }
         }
 
+        file_path =
+            (char *)malloc(MAX_PATH_LENGTH + MAX_FILE_LENGTH + 1);
+        memset(file_path, 0, MAX_PATH_LENGTH + MAX_FILE_LENGTH + 1);
         strcpy(file_path, path);
-        file_path[len] = '/';
+        *(file_path + len) = '/';
         strcpy(file_path + len + 1, dirent->d_name);
 
-        if (lstat(file_path, &st)) {
+        ret = lstat(file_path, &st);
+        if (ret < 0) {
             LOGE("lstat failed on %s\n", file_path);
             closedir(dir);
-            return -1;
+            free(file_path);
+            return ret;
         }
 
         *size += st.st_size;
 
         if (dirent->d_type == DT_DIR) {
-            get_dir_size(file_path, size);
+            ret = get_dir_size(file_path, size);
+            if (ret < 0) {
+                free(file_path);
+                return ret;
+            }
         }
+
+        free(file_path);
     }
 
     closedir(dir);
@@ -232,9 +257,9 @@ int get_dir_size(char *path, off_t * size)
 static int create_dirs(file_info ** dir_list, char *src_path, char *dst_path)
 {
     file_info *iter = *dir_list;
-    char path[MAX_PATH_LENGTH + 1];
+    char *path;
     int len;
-    int ret;
+    int ret = -1;
     struct utimbuf time;
 
     if (!iter)
@@ -247,50 +272,72 @@ static int create_dirs(file_info ** dir_list, char *src_path, char *dst_path)
         return -1;
     }
 
+    path = (char *)malloc(MAX_PATH_LENGTH + 1);
+    if (!path) {
+        LOGE("insufficient memory\n");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(path, 0, MAX_PATH_LENGTH + 1);
     strcpy(path, dst_path);
-    path[strlen(dst_path)] = '/';
+    *(path + strlen(dst_path)) = '/';
     strcpy(path + strlen(dst_path) + 1, iter->path + strlen(src_path));
 
     /* The "list" is a stack; recurency will restore FIFO order */
     if (!iter->next) {
-        if (mkdir(path, iter->st.st_mode) < 0) {
+        ret = mkdir(path, iter->st.st_mode);
+        if (ret < 0) {
             LOGE("mkdir %s fail\n", path);
-            return -1;
+            free(path);
+            return ret;
         }
-        if (chown(path, iter->st.st_uid, iter->st.st_gid) < 0) {
+        ret = chown(path, iter->st.st_uid, iter->st.st_gid);
+        if (ret < 0) {
             LOGE("chown %s fail\n", path);
-            return -1;
+            free(path);
+            return ret;
         }
         time.actime = iter->st.st_atime;
         time.modtime = iter->st.st_mtime;
-        if (utime(path, &time) != 0) {
+        ret = utime(path, &time);
+        if (ret != 0) {
             LOGE("utime on %s failed", path);
+            free(path);
             return -1;
         }
         return 0;
     }
 
     ret = create_dirs(&iter->next, src_path, dst_path);
-    if (ret < 0)
-        return -1;
+    if (ret < 0) {
+        free(path);
+        return ret;
+    };
 
-    if (mkdir(path, iter->st.st_mode) < 0) {
+    ret = mkdir(path, iter->st.st_mode);
+    if (ret < 0) {
         LOGE("mkdir %s fail", path);
-        return -1;
+        free(path);
+        return ret;
     }
 
-    if (chown(path, iter->st.st_uid, iter->st.st_gid) < 0) {
+    ret = chown(path, iter->st.st_uid, iter->st.st_gid);
+    if (ret < 0) {
         LOGE("chown %s fail\n", path);
-        return -1;
+        free(path);
+        return ret;
     }
 
     time.actime = iter->st.st_atime;
     time.modtime = iter->st.st_mtime;
-    if (utime(path, &time) != 0) {
+    ret = utime(path, &time);
+    if (ret != 0) {
         LOGE("utime on %s failed", path);
+        free(path);
         return -1;
     }
 
+    free(path);
     return 0;
 }
 
@@ -304,18 +351,17 @@ static int create_dirs(file_info ** dir_list, char *src_path, char *dst_path)
 static int delete_files(file_info ** file_list)
 {
     file_info *iter = *file_list;
-    int ret = -1;
+    int ret = 0;
 
     while (iter) {
-        ret = remove(iter->path);
-        if (ret < 0) {
+        if (remove(iter->path) < 0) {
             LOGE("unable to remove %s\n", iter->path);
-            return ret;
+            ret = -1;
         }
         iter = iter->next;
     }
 
-    return 0;
+    return ret;
 }
 
 /**
@@ -330,21 +376,21 @@ static int delete_files(file_info ** file_list)
 static int copy_file(char *src_path, char *dst_path, struct stat *st)
 {
     char buffer[MAX_PATH_LENGTH];
-    int n = 0, m = 0;
+    int n = 0, m = 0, ret = -1;
     int fd_src, fd_dst;
     struct utimbuf time;
 
     fd_src = open(src_path, O_RDONLY);
     if (fd_src < 0) {
         LOGE("open %s failed\n", src_path);
-        return -1;
+        return fd_src;
     }
 
     fd_dst = open(dst_path, O_CREAT | O_WRONLY, st->st_mode);
     if (fd_dst < 0) {
         LOGE("open %s failed\n", dst_path);
         close(fd_src);
-        return -1;
+        return fd_dst;
     }
 
     do {
@@ -353,7 +399,7 @@ static int copy_file(char *src_path, char *dst_path, struct stat *st)
             LOGE("Error reading from file\n");
             close(fd_src);
             close(fd_dst);
-            return -1;
+            return n;
         }
         if (n == 0)
             break;
@@ -368,14 +414,16 @@ static int copy_file(char *src_path, char *dst_path, struct stat *st)
     close(fd_src);
     close(fd_dst);
 
-    if (chown(dst_path, st->st_uid, st->st_gid) < 0) {
+    ret = chown(dst_path, st->st_uid, st->st_gid);
+    if (ret < 0) {
         LOGE("chown %s fail\n", dst_path);
-        return -1;
+        return ret;
     }
     /* Save access times */
     time.actime = st->st_atime;
     time.modtime = st->st_mtime;
-    if (utime(dst_path, &time) != 0) {
+    ret = utime(dst_path, &time);
+    if (ret != 0) {
         LOGE("utime on %s failed", dst_path);
         return -1;
     }
@@ -397,7 +445,6 @@ static int copy_files(file_info ** file_list, char *src_path, char *dst_path)
     file_info *iter = *file_list;
     char path[MAX_PATH_LENGTH + 1], *linkname;
     int len = 0, ret = -1;
-    struct stat st;
 
     if (strlen(src_path) > MAX_PATH_LENGTH
         || strlen(dst_path) > MAX_PATH_LENGTH) {
@@ -438,28 +485,25 @@ static int copy_files(file_info ** file_list, char *src_path, char *dst_path)
             if (ret < 0) {
                 free(linkname);
                 LOGE("can't create symlink %s", path);
-                return -1;
+                return ret;
             }
 
-            if (lchown(path, iter->st.st_uid, iter->st.st_gid) < 0) {
+            ret = lchown(path, iter->st.st_uid, iter->st.st_gid);
+            if (ret < 0) {
                 LOGE("lchown %s fail\n", iter->path);
                 free(linkname);
-                return -1;
+                return ret;
             }
             free(linkname);
             iter = iter->next;
             continue;
         }
 
-        if (lstat(iter->path, &st)) {
-            LOGE("lstat failed on %s\n", iter->path);
-            return -1;
-        }
-
-        if (copy_file(iter->path, path, &iter->st) < 0) {
+        ret = copy_file(iter->path, path, &iter->st);
+        if (ret < 0) {
             LOGE("Copying file form %s to %s failed\n", iter->path,
                  path);
-            return -1;
+            return ret;
         }
 
         iter = iter->next;

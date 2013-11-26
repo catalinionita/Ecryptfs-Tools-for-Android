@@ -294,7 +294,7 @@ int write_crypto_header(struct crypto_header *header, char *path)
 {
     int fd, n;
 
-    fd = open(path, O_WRONLY | O_CREAT);
+    fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
     if (fd < 0) {
         LOGE("Can't write crypto header");
         return fd;
@@ -358,7 +358,7 @@ int generate_crypt_info(char *storage_path, char *passwd)
     unsigned char *encryption_key = buffer;
     unsigned char *IV = buffer + ECRYPTFS_KEY_LEN;
     unsigned int passwd_len = strlen(passwd);
-    int ret;
+    int ret = -1;
 
     /* Create private directory */
     ret = get_private_storage_path(private_dir_path, storage_path);
@@ -369,14 +369,14 @@ int generate_crypt_info(char *storage_path, char *passwd)
     ret = mkdir(private_dir_path, S_IRWXU);
     if (ret < 0) {
         LOGE("mkdir %s fail", private_dir_path);
-        return -1;
+        return ret;
     }
 
     /* Generate fefek, fnek and salt */
     ret = generate_crypto_header(&header);
     if (ret < 0) {
         LOGE("generate_crypto_header for %s failed", private_dir_path);
-        return -1;
+        return ret;
     }
 
     /* Generate 256 bits from password; the first 128 bits will be the
@@ -387,7 +387,7 @@ int generate_crypt_info(char *storage_path, char *passwd)
     ret = encrypt_crypto_header(&header, encryption_key, IV);
     if (ret < 0) {
         LOGE("encrypt_crypto_header for %s failed", private_dir_path);
-        return -1;
+        return ret;
     }
 
     header.stat = STORAGE_ENCRYPTION_NOT_STARTED;
@@ -395,18 +395,26 @@ int generate_crypt_info(char *storage_path, char *passwd)
     ret = get_key_storage_path(key_storage_path, storage_path);
     if (ret < 0) {
         LOGE("get_key_storage_path for %s failed", storage_path);
-        return -1;
+        return ret;
     }
 
     ret = write_crypto_header(&header, key_storage_path);
     if (ret < 0) {
         LOGE("fail to write crypto header to %s ", key_storage_path);
-        return -1;
+        return ret;
     }
 
     return 0;
 }
 
+/**
+ * Validate a password string against a crypto header
+ *
+ * @param header crypto header
+ * @param passwd input password
+ *
+ * @return 0 for success, negative value for error
+ */
 int check_passwd(struct crypto_header *header, char *passwd)
 {
     int passwd_len = strlen(passwd);
@@ -427,11 +435,20 @@ int check_passwd(struct crypto_header *header, char *passwd)
 
     /* Check if signature match */
     if (memcmp(signature, header->signature, SHA512_DIGEST_LENGTH) == 0)
-        return 1;
+        return 0;
 
     return -1;
 }
 
+/**
+ * Change password for a secure storage
+ *
+ * @param storage_path secure storage path
+ * @param old_passwd old password
+ * @param new_passwd new password
+ *
+ * @return 0 for success, negative value for error
+ */
 int change_passwd(char *storage_path, char *old_passwd, char *new_passwd)
 {
     struct crypto_header header;
@@ -444,7 +461,7 @@ int change_passwd(char *storage_path, char *old_passwd, char *new_passwd)
     ret = get_key_storage_path(key_storage_path, storage_path);
     if (ret < 0) {
         LOGE("Invalid key storage");
-        return -1;
+        return ret;
     }
 
     ret = read_crypto_header(&header, key_storage_path);
@@ -470,14 +487,14 @@ int change_passwd(char *storage_path, char *old_passwd, char *new_passwd)
     ret = encrypt_crypto_header(&header, encryption_key, IV);
     if (ret < 0) {
         LOGE("Failed to encrypt crypto header");
-        return -1;
+        return ret;
     }
 
     /* Write header to storage */
     ret = write_crypto_header(&header, key_storage_path);
     if (ret < 0) {
         LOGE("Failed to write crypto header to %s ", key_storage_path);
-        return -1;
+        return ret;
     }
 
     return 0;

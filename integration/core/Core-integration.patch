@@ -1,0 +1,58 @@
+From 3247f95c69176d88e24d975230c69ee1b1ebd0e1 Mon Sep 17 00:00:00 2001
+From: Catalin Ionita <catalin.ionita@intel.com>
+Date: Tue, 26 Nov 2013 14:50:41 +0200
+Subject: [PATCH] Efs integration with core
+
+---
+ init/Android.mk |    4 +++-
+ init/builtins.c |    5 +++++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/init/Android.mk b/init/Android.mk
+index abfc68a..875c45a 100644
+--- a/init/Android.mk
++++ b/init/Android.mk
+@@ -33,6 +33,7 @@ LOCAL_FORCE_STATIC_EXECUTABLE := true
+ LOCAL_MODULE_PATH := $(TARGET_ROOT_OUT)
+ LOCAL_UNSTRIPPED_PATH := $(TARGET_ROOT_OUT_UNSTRIPPED)
+ 
++LOCAL_C_INCLUDES += external/efs-tools/src/include
+ LOCAL_STATIC_LIBRARIES := \
+ 	libfs_mgr \
+ 	liblogwrap \
+@@ -41,7 +42,8 @@ LOCAL_STATIC_LIBRARIES := \
+ 	libc \
+ 	libselinux \
+ 	libmincrypt \
+-	libext4_utils_static
++	libext4_utils_static \
++	libefs_init
+ 
+ include $(BUILD_EXECUTABLE)
+ 
+diff --git a/init/builtins.c b/init/builtins.c
+index e8c8f91..d6040a5 100644
+--- a/init/builtins.c
++++ b/init/builtins.c
+@@ -35,6 +35,7 @@
+ #include <cutils/android_reboot.h>
+ #include <sys/system_properties.h>
+ #include <fs_mgr.h>
++#include <efs/init.h>
+ 
+ #include <selinux/selinux.h>
+ #include <selinux/label.h>
+@@ -506,6 +507,10 @@ int do_mount_all(int nargs, char **args)
+         property_set("ro.crypto.state", "encrypted");
+         property_set("vold.decrypt", "1");
+     } else if (ret == 0) {
++        if (android_check_primary_user_encrypted() == 1) {
++            mount("tmpfs", "/data", "tmpfs", MS_NOATIME | MS_NOSUID | MS_NODEV, "size=128m,mode=0771,uid=1000,gid=1000");
++            return ret;
++        }
+         property_set("ro.crypto.state", "unencrypted");
+         /* If fs_mgr determined this is an unencrypted device, then trigger
+          * that action.
+-- 
+1.7.9.5
+

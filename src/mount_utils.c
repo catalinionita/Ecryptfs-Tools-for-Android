@@ -135,7 +135,7 @@ int get_key_hash_from_mount_options(char *mount_options,
                     char *fefek_hash_hex, char *fnek_hash_hex)
 {
     char *option = NULL, *tmp = NULL;
-    int ret = 0, count = 0;
+    int ret = -1, count = 0;
 
     /* Search for ecryptfs hash key through comma-separated mount options */
     option = strtok_r(mount_options, ",", &tmp);
@@ -218,7 +218,7 @@ int ecryptfs_wait_and_unmount(const char *mount_point)
 int mount_ecryptfs(char *path, char *mount_point, char *passwd,
            char *key_storage_path)
 {
-    int ret;
+    int ret = -1;
     unsigned char fefek_hash[ECRYPTFS_SIG_LEN];
     char fefek_hash_hex[ECRYPTFS_SIG_SIZE_HEX + 1];
     unsigned char fnek_hash[ECRYPTFS_SIG_LEN];
@@ -233,9 +233,10 @@ int mount_ecryptfs(char *path, char *mount_point, char *passwd,
         return 0;
     }
 
-    if (stat(mount_point, &st)) {
+    ret = stat(mount_point, &st);
+    if (ret < 0) {
         LOGE("lstat failed on %s", mount_point);
-        return -1;
+        return ret;
     }
 
     ret = read_crypto_header(&header, key_storage_path);
@@ -258,6 +259,7 @@ int mount_ecryptfs(char *path, char *mount_point, char *passwd,
     SHA512(header.fnek, ECRYPTFS_KEY_LEN, fnek_hash);
     convert_to_hex_format(fnek_hash, fnek_hash_hex, ECRYPTFS_SIG_SIZE);
 
+    /* ToDo add gotos for fail */
     /* Add fefek to kernel keyring */
     ret = add_ecryptfs_key(header.fefek, fefek_hash_hex, header.salt);
     if (ret < 0)
@@ -279,14 +281,16 @@ int mount_ecryptfs(char *path, char *mount_point, char *passwd,
         return ret;
     }
 
-    if (chown(mount_point, st.st_uid, st.st_gid) < 0) {
+    ret = chown(mount_point, st.st_uid, st.st_gid);
+    if (ret < 0) {
         LOGE("chown %s fail", mount_point);
-        return -1;
+        return ret;
     }
 
-    if (chmod(mount_point, st.st_mode) < 0) {
+    ret = chmod(mount_point, st.st_mode);
+    if (ret < 0) {
         LOGE("chmod %s fail", mount_point);
-        return -1;
+        return ret;
     }
 
     return 0;

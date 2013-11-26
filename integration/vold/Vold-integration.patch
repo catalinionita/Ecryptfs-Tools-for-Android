@@ -1,0 +1,65 @@
+From 8f15dceee2d820590dc89c35a0fb33e3c7aa63ce Mon Sep 17 00:00:00 2001
+From: Catalin Ionita <catalin.ionita@intel.com>
+Date: Tue, 26 Nov 2013 14:28:01 +0200
+Subject: [PATCH] Integrate EFS-tools with vold
+
+---
+ Android.mk          |    7 +++++--
+ CommandListener.cpp |    2 ++
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/Android.mk b/Android.mk
+index 8d0b249..4338043 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -3,6 +3,7 @@ LOCAL_PATH:= $(call my-dir)
+ common_src_files := \
+ 	VolumeManager.cpp \
+ 	CommandListener.cpp \
++	EncryptedFileStorageCmd.cpp \
+ 	VoldCommand.cpp \
+ 	NetlinkManager.cpp \
+ 	NetlinkHandler.cpp \
+@@ -23,7 +24,8 @@ common_c_includes := \
+ 	$(KERNEL_HEADERS) \
+ 	system/extras/ext4_utils \
+ 	external/openssl/include \
+-	external/scrypt/lib/crypto
++	external/scrypt/lib/crypto \
++	external/efs-tools/src/include
+ 
+ common_shared_libraries := \
+ 	libsysutils \
+@@ -33,7 +35,8 @@ common_shared_libraries := \
+ 	libhardware_legacy \
+ 	liblogwrap \
+ 	libext4_utils \
+-	libcrypto
++	libcrypto \
++	libefs
+ 
+ common_static_libraries := \
+ 	libfs_mgr \
+diff --git a/CommandListener.cpp b/CommandListener.cpp
+index 049d42c..60e979a 100644
+--- a/CommandListener.cpp
++++ b/CommandListener.cpp
+@@ -39,6 +39,7 @@
+ #include "Devmapper.h"
+ #include "cryptfs.h"
+ #include "fstrim.h"
++#include "EncryptedFileStorageCmd.h"
+ 
+ #define DUMP_ARGS 0
+ 
+@@ -52,6 +53,7 @@ CommandListener::CommandListener() :
+     registerCmd(new XwarpCmd());
+     registerCmd(new CryptfsCmd());
+     registerCmd(new FstrimCmd());
++	registerCmd(new EncryptedFileStorageCmd());
+ }
+ 
+ void CommandListener::dumpArgs(int argc, char **argv, int argObscure) {
+-- 
+1.7.9.5
+

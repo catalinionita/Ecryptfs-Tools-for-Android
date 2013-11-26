@@ -104,7 +104,7 @@ static int encrypt_storage(char *storage_path, char *passwd)
         LOGE("Error getting private storage for %s", storage_path);
         return ret;
     }
-
+    // ToDo split key_storage path into get_key storage and get key name
     ret = get_key_storage_path(key_storage_path, storage_path);
     if (ret < 0) {
         LOGE("Error getting private storage for %s", storage_path);
@@ -480,12 +480,12 @@ int EFS_recover_data_and_remove(char *storage_path, char *passwd)
     ret = check_fs_mounted(private_dir_path);
     if (ret < 0) {
         LOGE("Error getting mount options for %s", storage_path);
-        return 0;
+        return ret;
     }
 
     if (ret == 1) {
         LOGE("ecryptfs is already mounted on %s", storage_path);
-        return 0;
+        return -1;
     }
 
     ret = get_recovery_path(recovery_path, storage_path);
