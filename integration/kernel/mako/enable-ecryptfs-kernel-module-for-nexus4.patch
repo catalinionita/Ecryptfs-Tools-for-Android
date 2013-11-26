@@ -1,0 +1,47 @@
+From 94977aa625e45ac170f9d7e540745a615ac22449 Mon Sep 17 00:00:00 2001
+From: Catalin Ionita <catalin.ionita@intel.com>
+Date: Tue, 26 Nov 2013 18:32:59 +0200
+Subject: [PATCH] Enable ecrypfs for nexus4 mako
+
+---
+ arch/arm/configs/mako_defconfig |   12 ++++++++++++
+ fs/ecryptfs/keystore.c          |    2 +-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/mako_defconfig b/arch/arm/configs/mako_defconfig
+index 4f4a62a..d5aff2d 100644
+--- a/arch/arm/configs/mako_defconfig
++++ b/arch/arm/configs/mako_defconfig
+@@ -509,3 +509,15 @@ CONFIG_LSM_MMAP_MIN_ADDR=4096
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_CFG80211_INTERNAL_REGDB=y
+ CONFIG_SWAP=n
++
++CONFIG_KEYS=y
++CONFIG_CRYPTO=y
++CONFIG_CRYPTO_ALGAPI=y
++CONFIG_CRYPTO_BLKCIPHER=y
++CONFIG_CRYPTO_HASH=y
++CONFIG_CRYPTO_MANAGER=y
++CONFIG_CRYPTO_MD5=y
++CONFIG_CRYPTO_ECB=y
++CONFIG_CRYPTO_CBC=y
++CONFIG_CRYPTO_AES=y
++CONFIG_ECRYPT_FS=y
+\ No newline at end of file
+diff --git a/fs/ecryptfs/keystore.c b/fs/ecryptfs/keystore.c
+index 2333203..6154cde 100644
+--- a/fs/ecryptfs/keystore.c
++++ b/fs/ecryptfs/keystore.c
+@@ -1150,7 +1150,7 @@ decrypt_pki_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
+ 	struct ecryptfs_message *msg = NULL;
+ 	char *auth_tok_sig;
+ 	char *payload;
+-	size_t payload_len;
++	size_t payload_len = 0;
+ 	int rc;
+ 
+ 	rc = ecryptfs_get_auth_tok_sig(&auth_tok_sig, auth_tok);
+-- 
+1.7.9.5
+
