@@ -10,3 +10,5 @@ git apply external/efs-tools/integration/core/Core-integration.patch --directory
 git apply external/efs-tools/integration/frameworks-base/MountManagerService-integration.patch --directory=frameworks/base/
 #Settings integration
 git apply external/efs-tools/integration/settings/Settings-integration.patch --directory=packages/apps/Settings/
+#SeLinux policy integration
+git apply external/efs-tools/integration/sepolicy/EFS-SeLinux-Policy.patch --directory=external/sepolicy/
