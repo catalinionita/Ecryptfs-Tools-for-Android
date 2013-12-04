@@ -1,7 +1,7 @@
-From 3247f95c69176d88e24d975230c69ee1b1ebd0e1 Mon Sep 17 00:00:00 2001
+From 1c07468a0a6b148fc3d7f2059648bbcaa7105cd5 Mon Sep 17 00:00:00 2001
 From: Catalin Ionita <catalin.ionita@intel.com>
-Date: Tue, 26 Nov 2013 14:50:41 +0200
-Subject: [PATCH] Efs integration with core
+Date: Wed, 4 Dec 2013 15:34:28 +0200
+Subject: [PATCH] Integration with efs
 
 ---
  init/Android.mk |    4 +++-
@@ -31,7 +31,7 @@ index abfc68a..875c45a 100644
  include $(BUILD_EXECUTABLE)
  
 diff --git a/init/builtins.c b/init/builtins.c
-index e8c8f91..d6040a5 100644
+index e8c8f91..5086d04 100644
 --- a/init/builtins.c
 +++ b/init/builtins.c
 @@ -35,6 +35,7 @@
@@ -42,17 +42,17 @@ index e8c8f91..d6040a5 100644
  
  #include <selinux/selinux.h>
  #include <selinux/label.h>
-@@ -506,6 +507,10 @@ int do_mount_all(int nargs, char **args)
-         property_set("ro.crypto.state", "encrypted");
+@@ -507,6 +508,10 @@ int do_mount_all(int nargs, char **args)
          property_set("vold.decrypt", "1");
      } else if (ret == 0) {
+         property_set("ro.crypto.state", "unencrypted");
 +        if (android_check_primary_user_encrypted() == 1) {
 +            mount("tmpfs", "/data", "tmpfs", MS_NOATIME | MS_NOSUID | MS_NODEV, "size=128m,mode=0771,uid=1000,gid=1000");
 +            return ret;
 +        }
-         property_set("ro.crypto.state", "unencrypted");
          /* If fs_mgr determined this is an unencrypted device, then trigger
           * that action.
+          */
 -- 
 1.7.9.5
 
