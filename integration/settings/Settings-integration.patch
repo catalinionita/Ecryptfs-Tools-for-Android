@@ -1,7 +1,7 @@
-From 90676dfe94fb9437dfebc19a01183b5c58e58a64 Mon Sep 17 00:00:00 2001
+From 6a4ece58738ad25980448012a18b4e54e97613b1 Mon Sep 17 00:00:00 2001
 From: Catalin Ionita <catalin.ionita@intel.com>
-Date: Tue, 26 Nov 2013 15:44:37 +0200
-Subject: [PATCH] Efs integration with Settings
+Date: Wed, 4 Dec 2013 15:11:21 +0200
+Subject: [PATCH] Integrate EFS with settings
 
 ---
  AndroidManifest.xml                                |   27 +
@@ -16,9 +16,7 @@ Subject: [PATCH] Efs integration with Settings
  res/layout/encrypt_user_status.xml                 |   40 ++
  res/values/strings.xml                             |  126 ++++
  res/values/styles.xml                              |    4 +
- res/xml/security_settings_encrypted.xml            |    6 +
  res/xml/security_settings_encrypted_misc.xml       |  108 ++++
- res/xml/security_settings_misc.xml                 |   11 +
  ...gs_unecrypted_device_encrypted_primary_user.xml |   39 ++
  res/xml/security_settings_unencrypted.xml          |    6 +-
  src/com/android/settings/CryptKeeper.java          |   12 +-
@@ -26,9 +24,9 @@ Subject: [PATCH] Efs integration with Settings
  src/com/android/settings/EncryptUser.java          |  684 ++++++++++++++++++++
  src/com/android/settings/EncryptUserConfirm.java   |  111 ++++
  src/com/android/settings/EncryptUserSettings.java  |  223 +++++++
- src/com/android/settings/SecuritySettings.java     |   39 +-
+ src/com/android/settings/SecuritySettings.java     |   33 +-
  src/com/android/settings/Settings.java             |    2 +
- 24 files changed, 1996 insertions(+), 4 deletions(-)
+ 22 files changed, 1974 insertions(+), 3 deletions(-)
  create mode 100644 res/layout/decrypt_user_confirm.xml
  create mode 100644 res/layout/decrypt_user_settings.xml
  create mode 100644 res/layout/encrypt_user_blank.xml
@@ -788,23 +786,6 @@ index eee2cd9..dc69a97 100644
      <style name="SecurityPreferenceButtonContainer" parent="@android:style/Holo.SegmentedButton">
          <item name="android:layout_width">match_parent</item>
          <item name="android:layout_height">wrap_content</item>
-diff --git a/res/xml/security_settings_encrypted.xml b/res/xml/security_settings_encrypted.xml
-index e82dc56..c96c5be 100644
---- a/res/xml/security_settings_encrypted.xml
-+++ b/res/xml/security_settings_encrypted.xml
-@@ -26,6 +26,12 @@
-             android:summary="@string/crypt_keeper_encrypted_summary"
-         />
- 
-+         <Preference
-+            style="?android:preferenceInformationStyle"
-+            android:title="@string/encrypt_user_encrypt_title"
-+            android:summary="@string/encrypt_user_encrypted_summary"
-+        />
-+
-     </PreferenceCategory>
- 
- 
 diff --git a/res/xml/security_settings_encrypted_misc.xml b/res/xml/security_settings_encrypted_misc.xml
 new file mode 100644
 index 0000000..a260bd7
@@ -919,26 +900,6 @@ index 0000000..a260bd7
 +                android:fragment="com.android.settings.PermissionMonitorSettings"/>
 +    </PreferenceCategory>
 +</PreferenceScreen>
-diff --git a/res/xml/security_settings_misc.xml b/res/xml/security_settings_misc.xml
-index dbbeb1d..2cc5d5a 100644
---- a/res/xml/security_settings_misc.xml
-+++ b/res/xml/security_settings_misc.xml
-@@ -98,4 +98,15 @@
-                     android:targetClass="com.android.settings.CredentialStorage"/>
-         </Preference>
-     </PreferenceCategory>
-+
-+ <PreferenceCategory
-+        android:key="security_category"
-+        android:title="@string/crypt_keeper_settings_title">
-+         <PreferenceScreen
-+            android:key="user encryption"
-+            android:title="@string/encrypt_user_encrypt_title"
-+            android:summary="@string/encrypt_user_encrypt_summary"
-+            android:fragment="com.android.settings.EncryptUserSettings" />
-+ </PreferenceCategory>
-+
- </PreferenceScreen>
 diff --git a/res/xml/security_settings_unecrypted_device_encrypted_primary_user.xml b/res/xml/security_settings_unecrypted_device_encrypted_primary_user.xml
 new file mode 100644
 index 0000000..0c48ed5
@@ -2176,7 +2137,7 @@ index 0000000..7a7adf1
 +
 +}
 diff --git a/src/com/android/settings/SecuritySettings.java b/src/com/android/settings/SecuritySettings.java
-index e002264..9316e99 100644
+index e002264..986aa41 100644
 --- a/src/com/android/settings/SecuritySettings.java
 +++ b/src/com/android/settings/SecuritySettings.java
 @@ -48,6 +48,12 @@ import com.android.internal.widget.LockPatternUtils;
@@ -2223,7 +2184,7 @@ index e002264..9316e99 100644
              case DevicePolicyManager.ENCRYPTION_STATUS_INACTIVE:
                  // This device supports encryption but isn't encrypted.
 -                addPreferencesFromResource(R.xml.security_settings_unencrypted);
-+                // if the primary user data is encrypted, the system
++                // Check the primary user data is encrypted
 +                boolean userEncrypted = isCurrentUserEncrypted();
 +                if (userEncrypted) {
 +                    addPreferencesFromResource(R.xml.security_settings_unecrypted_device_encrypted_primary_user);
@@ -2233,19 +2194,6 @@ index e002264..9316e99 100644
                  break;
              }
          }
-@@ -226,7 +257,11 @@ public class SecuritySettings extends RestrictedSettingsFragment
-         }
- 
-         // Append the rest of the settings
--        addPreferencesFromResource(R.xml.security_settings_misc);
-+        if (isCurrentUserEncrypted()) {
-+            addPreferencesFromResource(R.xml.security_settings_encrypted_misc);
-+        } else {
-+            addPreferencesFromResource(R.xml.security_settings_misc);
-+        }
- 
-         // Do not display SIM lock for devices without an Icc card
-         TelephonyManager tm = TelephonyManager.getDefault();
 diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
 index e93fa18..9ff4c2c 100644
 --- a/src/com/android/settings/Settings.java
