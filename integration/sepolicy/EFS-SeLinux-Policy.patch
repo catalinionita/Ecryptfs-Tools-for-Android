@@ -1,7 +1,7 @@
-From ac34108572ea1a7df86dcddba39b5851d2e2664e Mon Sep 17 00:00:00 2001
+From 3e85ec1e0291b25948379aa7224070aace6ef3c9 Mon Sep 17 00:00:00 2001
 From: Catalin Ionita <catalin.ionita@intel.com>
-Date: Tue, 3 Dec 2013 14:03:26 +0200
-Subject: [PATCH] Encrypt primary user policies
+Date: Wed, 4 Dec 2013 17:16:09 +0200
+Subject: [PATCH] Efs integration
 
 ---
  file.te           |    4 ++++
@@ -9,8 +9,8 @@ Subject: [PATCH] Encrypt primary user policies
  installd.te       |    5 +++++
  property_contexts |    1 +
  te_macros         |   11 +++++++++++
- vold.te           |   34 ++++++++++++++++++++++++++++++++++
- 6 files changed, 57 insertions(+)
+ vold.te           |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 67 insertions(+)
 
 diff --git a/file.te b/file.te
 index aefa9a6..30ffa3f 100644
@@ -92,10 +92,10 @@ index 310612c..cfad9a0 100644
  # Allows this domain to use the relabelto permission
  define(`relabelto_domain', `
 diff --git a/vold.te b/vold.te
-index 1fce7bd..0006922 100644
+index 1fce7bd..d11a160 100644
 --- a/vold.te
 +++ b/vold.te
-@@ -66,3 +66,37 @@ allow vold asec_image_file:dir rw_dir_perms;
+@@ -66,3 +66,47 @@ allow vold asec_image_file:dir rw_dir_perms;
  security_access_policy(vold)
  allow vold asec_apk_file:dir { rw_dir_perms setattr };
  allow vold asec_apk_file:file { r_file_perms setattr };
@@ -133,6 +133,16 @@ index 1fce7bd..0006922 100644
 +allow vold proc:file write;
 +allow vold self:capability sys_boot;
 +allow vold init_tmpfs:file { open read };
++
++# Required for decryption
++allow vold unlabeled:dir mounton;
++allow vold platform_app_data_file:dir write;
++allow vold shell_data_file:dir write;
++allow vold nfc_data_file:dir write;
++allow vold download_file:dir write;
++allow vold radio_data_file:dir write;
++allow vold bluetooth_data_file:dir write;
++allow vold ecryptfs:lnk_file read;
 -- 
 1.7.9.5
 
