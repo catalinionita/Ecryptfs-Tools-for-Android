@@ -24,6 +24,7 @@ OLD_PASS='testold'
 NEW_PASS='testnew'
 STORAGE_PATH='/data/data/new_folder'
 ENCRYPTED_STORAGE_PATH='/data/data/.new_folder'
+LOST_FOUND='/data/lost+found/new_folder'
 
 #this is a hardcoded key, based on the hardcoded STORAGE_PATH. if the STORAGE_PATH is changed, you should change also the value of KEY, otherwise the create/remove tests will falsely FAIL
 KEY='.keys.b318b6b72bd2dae7b992fe2cbf5c42b45914c3c9597a9b1732af6d25b5df3f6c0ad517bc67ce5d33d8b19c4f4adb910dd894cde8ffd7023eaceffa00bb395ac0'
@@ -46,7 +47,24 @@ function clean() {
 	adb shell umount $2 > /dev/null
 	adb shell 'rm -rf '$1
 	adb shell 'rm -rf '$2
+	adb shell 'rm -rf '$LOST_FOUND
 	adb logcat -c
+	set_selinux_permissions $SELINUX_ENFORCING
+}
+
+function set_selinux_permissions() {
+	if [[ $1 == "1" ]]
+		then
+			adb shell 'echo 1 > /sys/fs/selinux/enforce'
+			mode=`adb shell getenforce`
+			echo 'SELINUX Mode set to' $mode
+		elif [[ $1 == "0" ]]
+			then
+				adb shell 'echo 0 > /sys/fs/selinux/enforce'
+				mode=`adb shell getenforce`
+				echo 'SELINUX Mode set to' $mode
+	fi
+
 }
 
 #here add a setup function where to populate the STORAGE_PATH with files
@@ -55,6 +73,8 @@ function setup(){
 	adb shell 'echo aaa > '$1'/a.txt'
 	adb shell 'echo bbb > '$1'/b.txt'
 	adb shell 'echo ccc > '$1'/c.txt'
+	SELINUX_ENFORCING=$(adb shell getenforce | grep -c Enforcing)
+	set_selinux_permissions 0
 }
 function create_storage() {
 	test1='CREATE a libefs '$1' container'

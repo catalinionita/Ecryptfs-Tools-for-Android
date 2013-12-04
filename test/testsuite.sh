@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #  SMOKE Testsuite
 # * Copyright (C) 2013 Intel Corporation, All Rights Reserved
 # *
@@ -19,35 +18,6 @@
 # */
 
 source smoke_with_fun.sh
-
-
-#clean $STORAGE_PATH $ENCRYPTED_STORAGE_PATH
-#setup $STORAGE_PATH
-#create_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
-#lock_storage $STORAGE_PATH
-#restore_storage $STORAGE_PATH $OLD_PASS
-#remove_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
-
-#unexisting PATHS
-#lock_storage '/data/data/data'
-#unlock_storage '/data/data/data' qwerty
-#remove_storage '/data/data/data' qwerty '/data/data/.data'
-
-:<<create_remove
-echo 'Positive testing'
-clean $STORAGE_PATH $ENCRYPTED_STORAGE_PATH
-setup $STORAGE_PATH
-create_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
-remove_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
-setup $STORAGE_PATH
-create_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
-remove_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
-setup $STORAGE_PATH
-create_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
-remove_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
-
-create_remove
-
 #Test suite
 #Positive testing
 echo 'Positive testing'
@@ -65,19 +35,12 @@ change_passwd $STORAGE_PATH $OLD_PASS $NEW_PASS
 unlock_storage $STORAGE_PATH $NEW_PASS
 lock_storage $STORAGE_PATH
 restore_storage $STORAGE_PATH $NEW_PASS
-
-
-##############
-
+#############
 #Negative testing
 echo "Negative tests"
 clean "/data/data/bla" "/data/data/.bla"
 setup "/data/data/bla"
-#spaces=$'\040\040\040\040'
 #Password too short
 create_storage "/data/data/bla" bla "/data/data/.bla"
 create_storage "/../../data/data/bla" test1 "/./../data/data/.bla"
 remove_storage "/../../data/data/bla" test1 "/./../data/data/.bla"
-#restore_storage "/./.../data/data/bla" test1 "/./../data/data/.bla"
-#remove_storage "/./.../data/data/bla" test1 "/./../data/data/.bla"
-	
