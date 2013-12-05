@@ -1,34 +1,27 @@
-Ecryptfs-Tools-for-Android
+EFS-Tools for Android
 ==========================
 
 What's the purpose of this project?
 ---
-The aim of this project is to provide increased security and privacy for devices running Android OS.
-There are 2 main privacy features that end users and developers may benefit from:
+The aim of this project is to provide a set of tools that enable encrypted file system (EFS), like ecryptfs, in Android. Based on these tools, Android user data encryption feature is implemented as a prof of concept.
 
-      a) User data encryption
-      
-      b) API for building and managing local secure storage
-
-How do you plan to achieve that?
+How will this improve the Android user experience? 
 ---
-By providing the core tools and libraries for creating and managing secure crypto containers based on ecryptfs.
+There are 2 main privacy features that Android end users and application developers may benefit from:
 
-Why did you choose encrypted file system instead of using already available block device encryption (dm-crypt)?
+      a) Encryption of user data (currently Android has only full device encryption) ---- in progress
+
+      b) Creation of application secure file storage ---- ToDo
+
+What's ecryptfs?
 ---
-First granularity and second the ability to mount a file system without specifying the amount of space needed to extend into.
+http://ecryptfs.org/
 
-What are these tools and libraries you are talking about?
+What devices are supported?
 ---
-The core library for providing secure storage is libefs (encrypted file storage library). Everything else revolves around the core:
+Nexus 4 phone with Android 4.4_r1.2 (kitkat).
+Checkout the wiki on how to get started: https://github.com/catalinionita/Ecryptfs-Tools-for-Android/wiki/Building-AOSP-4.4_r1.2-with-efs-tools
 
-    libkeyutils : a LGPL shared library used to manage ecryptfs keys. The library is linked dynamically with libefs
-    efs-tools: tool to test libefs api
-    libefs_init - small static library to be built with init.
-
-Are these libraries and tools sufficient to build the Android features?
----
-No. The android_integration folder will provide vold, init, framework and Settings integration.
 
 --Catalin
 
