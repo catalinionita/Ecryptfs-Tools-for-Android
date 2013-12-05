@@ -44,7 +44,8 @@ LOCAL_SHARED_LIBRARIES := \
 	libcrypto \
 	libkeyutil \
 	libcutils \
-	liblog
+	liblog \
+	libhardware_legacy
 LOCAL_CFLAGS += -Wall
 include $(BUILD_SHARED_LIBRARY)
 

@@ -33,6 +33,7 @@
 #include <efs/android_user_encryption.h>
 #include <efs/init.h>
 #include "cutils/android_reboot.h"
+#include "hardware_legacy/power.h"
 
 #define MNT_FORCE       0x00000001
 
@@ -68,6 +69,71 @@ static void android_restart_services()
 }
 
 /**
+ * Encrypt Android primary user data
+ *
+ * @param password Android user password
+ *
+ * @return 0 on success, negative value on error
+ */
+static int android_encrypt_primary_data(char *password)
+{
+    char data_path[MAX_PATH_LENGTH], media_path[MAX_PATH_LENGTH], buf[10];
+    char lockid[32] = { 0 };
+    off_t size = 0, total_size = 0;
+    int ret = -1;
+
+    snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
+    acquire_wake_lock(PARTIAL_WAKE_LOCK, lockid);
+
+    property_set("crypto.primary_user", "encrypting");
+
+    memset(data_path, 0, sizeof(data_path));
+    sprintf(data_path, "%s%d", ANDROID_USER_DATA_PATH, PRIMARY_USER);
+    killProcessesWithOpenFiles(ANDROID_USER_DATA_PATH, 2);
+    memset(media_path, 0, sizeof(media_path));
+    sprintf(media_path, "%s%d", ANDROID_VIRTUAL_SDCARD_PATH, PRIMARY_USER);
+    killProcessesWithOpenFiles(ANDROID_VIRTUAL_SDCARD_PATH, 2);
+    sleep(2);
+
+    /* Get total size of encrypted data */
+    ret = get_dir_size(data_path, &size);
+    if (ret < 0) {
+        LOGE("Unable to get dir size for %s", data_path);
+        release_wake_lock(lockid);
+        return ret;
+    }
+    total_size += size;
+    ret = get_dir_size(media_path, &size);
+    if (ret < 0) {
+        LOGE("Unable to get dir size for %s", media_path);
+        release_wake_lock(lockid);
+        return ret;
+    }
+    total_size += size;
+    memset(buf, 0, sizeof(buf));
+    snprintf(buf, sizeof(buf), "%llu", total_size);
+    property_set("efs.encrypt.size", buf);
+
+    ret = EFS_create(data_path, password);
+    if (ret < 0) {
+        LOGE("Unable to create efs storage %s", data_path);
+        release_wake_lock(lockid);
+        return ret;
+    }
+
+    ret = EFS_create(media_path, password);
+    if (ret < 0) {
+        LOGE("Unable to create efs storage %s", media_path);
+        release_wake_lock(lockid);
+        return ret;
+    }
+
+    android_reboot(ANDROID_RB_RESTART, 0, 0);
+
+    return 0;
+}
+
+/**
  * Encrypt Android user data
  *
  * @param user Android user id
@@ -77,54 +143,32 @@ static void android_restart_services()
  */
 int android_encrypt_user_data(int user, char *password)
 {
-    char data_path[MAX_PATH_LENGTH], media_path[MAX_PATH_LENGTH], buf[10];
-    off_t size = 0, total_size = 0;
+    char path[MAX_PATH_LENGTH];
     int ret = -1;
 
     LOGI("Encrypt user data for %d", user);
 
+    if (user == PRIMARY_USER) {
+        return android_encrypt_primary_data(password);
+    }
+
     android_stop_services();
     sleep(5);
 
-    memset(data_path, 0, sizeof(data_path));
-    sprintf(data_path, "%s%d", ANDROID_USER_DATA_PATH, user);
-    memset(media_path, 0, sizeof(media_path));
-    sprintf(media_path, "%s%d", ANDROID_VIRTUAL_SDCARD_PATH, user);
-
-    ret = get_dir_size(data_path, &size);
+    memset(path, 0, sizeof(path));
+    sprintf(path, "%s%d", ANDROID_USER_DATA_PATH, user);
+    ret = EFS_create(path, password);
     if (ret < 0) {
-        LOGE("Unable to get dir size for %s", data_path);
-        return ret;
-    }
-    total_size += size;
-    ret = get_dir_size(media_path, &size);
-    if (ret < 0) {
-        LOGE("Unable to get dir size for %s", media_path);
-        return ret;
-    }
-    total_size += size;
-    memset(buf, 0, sizeof(buf));
-    snprintf(buf, sizeof(buf), "%llu", total_size);
-    property_set("efs.encrypt.size", buf);
-
-    if (user == PRIMARY_USER) {
-        property_set("crypto.primary_user", "encrypting");
-    }
-
-    ret = EFS_create(data_path, password);
-    if (ret < 0) {
-        LOGE("Unable to create efs storage %s", data_path);
+        LOGE("Unable to create efs storage %s", path);
         return ret;
     }
 
-    ret = EFS_create(media_path, password);
+    memset(path, 0, sizeof(path));
+    sprintf(path, "%s%d", ANDROID_VIRTUAL_SDCARD_PATH, user);
+    ret = EFS_create(path, password);
     if (ret < 0) {
-        LOGE("Unable to create efs storage %s", media_path);
+        LOGE("Unable to create efs storage %s", path);
         return ret;
-    }
-
-    if (user == PRIMARY_USER) {
-        android_reboot(ANDROID_RB_RESTART, 0, 0);
     }
 
     ret = android_unlock_user_data(user, password);
@@ -361,6 +405,62 @@ int android_change_user_data_password(int user, char *old_password,
 }
 
 /**
+ * Decrypt Android primary user data.
+ *
+ * @param password Android user passwd
+ *
+ * @return 0 on success, negative value on error
+ */
+static int android_decrypt_primary_user_data(char *password)
+{
+    char storage_path[MAX_PATH_LENGTH];
+    char lockid[32] = { 0 };
+    int ret = -1;
+
+    snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
+    acquire_wake_lock(PARTIAL_WAKE_LOCK, lockid);
+    property_set("crypto.primary_user", "decrypting");
+
+    memset(storage_path, 0, sizeof(storage_path));
+    sprintf(storage_path, "%s%d/", ANDROID_USER_DATA_PATH, PRIMARY_USER);
+    killProcessesWithOpenFiles(ANDROID_USER_DATA_PATH, 2);
+    ret = umount_ecryptfs(ANDROID_PRIMARY_USER_DATA_PATH);
+    if (ret < 0) {
+        LOGE("Error unmounting %s", ANDROID_PRIMARY_USER_DATA_PATH);
+        release_wake_lock(lockid);
+        return ret;
+    }
+
+    ret = EFS_recover_data_and_remove(storage_path, password);
+    if (ret < 0) {
+        LOGE("Error decrypting efs storage");
+        return ret;
+    }
+
+    memset(storage_path, 0, sizeof(storage_path));
+    sprintf(storage_path, "%s%d/", ANDROID_VIRTUAL_SDCARD_PATH,
+        PRIMARY_USER);
+    killProcessesWithOpenFiles(storage_path, 2);
+    ret = EFS_lock(storage_path);
+    if (ret < 0) {
+        LOGE("Can't unlock efs storage");
+        release_wake_lock(lockid);
+        return ret;
+    }
+
+    ret = EFS_recover_data_and_remove(storage_path, password);
+    if (ret < 0) {
+        LOGE("Error decrypting efs storage");
+        release_wake_lock(lockid);
+        return ret;
+    }
+
+    android_reboot(ANDROID_RB_RESTART, 0, 0);
+
+    return 0;
+}
+
+/**
  * Decrypt Android user data.
  *
  * @param user Android user id
@@ -371,27 +471,22 @@ int android_change_user_data_password(int user, char *old_password,
 int android_decrypt_user_data(int user, char *password)
 {
     char storage_path[MAX_PATH_LENGTH];
-    int ret;
+    int ret = -1;
 
     LOGI("Decrypt user %d data", user);
+
+    if (user == PRIMARY_USER) {
+        return android_decrypt_primary_user_data(password);
+    }
 
     android_stop_services();
 
     memset(storage_path, 0, sizeof(storage_path));
     sprintf(storage_path, "%s%d/", ANDROID_USER_DATA_PATH, user);
-    if (user == PRIMARY_USER) {
-        ret = umount_ecryptfs(ANDROID_PRIMARY_USER_DATA_PATH);
-        if (ret < 0) {
-            LOGE("Error unmounting %s",
-                 ANDROID_PRIMARY_USER_DATA_PATH);
-            return ret;
-        }
-    } else {
-        ret = EFS_lock(storage_path);
-        if (ret < 0) {
-            LOGE("Can't unlock efs storage");
-            return ret;
-        }
+    ret = EFS_lock(storage_path);
+    if (ret < 0) {
+        LOGE("Can't unlock efs storage");
+        return ret;
     }
 
     ret = EFS_recover_data_and_remove(storage_path, password);
@@ -415,10 +510,6 @@ int android_decrypt_user_data(int user, char *password)
         return ret;
     }
 
-    if (user == PRIMARY_USER) {
-        android_reboot(ANDROID_RB_RESTART, 0, 0);
-    }
-
     android_start_services();
     return 0;
 }
@@ -433,7 +524,7 @@ int android_decrypt_user_data(int user, char *password)
 int android_remove_user_encrypted_data(int user)
 {
     char storage_path[MAX_PATH_LENGTH];
-    int ret;
+    int ret = -1;
 
     LOGI("Remove user %d data", user);
     memset(storage_path, 0, sizeof(storage_path));
