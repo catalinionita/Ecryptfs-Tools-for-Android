@@ -37,6 +37,7 @@
 #include <efs/efs.h>
 #include <efs/file_utils.h>
 #include <efs/key_chain.h>
+#include <cutils/properties.h>
 
 typedef struct file_info file_info;
 struct file_info {
@@ -215,6 +216,8 @@ int get_dir_size(char *path, off_t * size)
 
         file_path =
             (char *)malloc(MAX_PATH_LENGTH + MAX_FILE_LENGTH + 1);
+        if (!file_path)
+            return -1;
         memset(file_path, 0, MAX_PATH_LENGTH + MAX_FILE_LENGTH + 1);
         strcpy(file_path, path);
         *(file_path + len) = '/';
@@ -375,10 +378,11 @@ static int delete_files(file_info ** file_list)
  */
 static int copy_file(char *src_path, char *dst_path, struct stat *st)
 {
-    char buffer[MAX_PATH_LENGTH];
+    char buffer[MAX_PATH_LENGTH], buff[PROPERTY_VALUE_MAX];
     int n = 0, m = 0, ret = -1;
     int fd_src, fd_dst;
     struct utimbuf time;
+    off_t size = 0;
 
     fd_src = open(src_path, O_RDONLY);
     if (fd_src < 0) {
@@ -409,6 +413,15 @@ static int copy_file(char *src_path, char *dst_path, struct stat *st)
             close(fd_dst);
             return -1;
         }
+
+        memset(buff, 0, sizeof(buff));
+        property_get("efs.encrypt.progress", buff, "0");
+        size = atoi(buff);
+        size += m;
+        memset(buff, 0, sizeof(buff));
+        snprintf(buff, sizeof(buff), "%d", size);
+        property_set("efs.encrypt.progress", buff);
+
     } while (n);
 
     close(fd_src);

@@ -79,7 +79,7 @@ static int android_encrypt_primary_data(char *password)
 {
     char data_path[MAX_PATH_LENGTH], media_path[MAX_PATH_LENGTH], buf[10];
     char lockid[32] = { 0 };
-    off_t size = 0, total_size = 0;
+    off_t size = 0;
     int ret = -1;
 
     snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
@@ -102,16 +102,14 @@ static int android_encrypt_primary_data(char *password)
         release_wake_lock(lockid);
         return ret;
     }
-    total_size += size;
     ret = get_dir_size(media_path, &size);
     if (ret < 0) {
         LOGE("Unable to get dir size for %s", media_path);
         release_wake_lock(lockid);
         return ret;
     }
-    total_size += size;
     memset(buf, 0, sizeof(buf));
-    snprintf(buf, sizeof(buf), "%llu", total_size);
+    snprintf(buf, sizeof(buf), "%d", size);
     property_set("efs.encrypt.size", buf);
 
     ret = EFS_create(data_path, password);
