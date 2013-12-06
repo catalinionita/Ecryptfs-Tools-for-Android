@@ -82,20 +82,27 @@ static int android_encrypt_primary_data(char *password)
     off_t size = 0;
     int ret = -1;
 
-    snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
-    acquire_wake_lock(PARTIAL_WAKE_LOCK, lockid);
-
     property_set("crypto.primary_user", "encrypting");
 
+    /*
+     * Kill apps that hold open files targeted paths
+     * Sending SIGKILL is brutal, but efficient
+     */
     memset(data_path, 0, sizeof(data_path));
     sprintf(data_path, "%s%d", ANDROID_USER_DATA_PATH, PRIMARY_USER);
     killProcessesWithOpenFiles(ANDROID_USER_DATA_PATH, 2);
     memset(media_path, 0, sizeof(media_path));
     sprintf(media_path, "%s%d", ANDROID_VIRTUAL_SDCARD_PATH, PRIMARY_USER);
     killProcessesWithOpenFiles(ANDROID_VIRTUAL_SDCARD_PATH, 2);
-    sleep(2);
 
-    /* Get total size of encrypted data */
+    /* Acquire a power lock so device won't enter sleep */
+    snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
+    acquire_wake_lock(PARTIAL_WAKE_LOCK, lockid);
+
+    /*
+     * Get total size of encrypted data  and export it to GUI via
+     * efs.encrypt.size property
+     */
     ret = get_dir_size(data_path, &size);
     if (ret < 0) {
         LOGE("Unable to get dir size for %s", data_path);
@@ -112,6 +119,7 @@ static int android_encrypt_primary_data(char *password)
     snprintf(buf, sizeof(buf), "%d", size);
     property_set("efs.encrypt.size", buf);
 
+    /* Create secure storages for /data/data and /data/media/0 */
     ret = EFS_create(data_path, password);
     if (ret < 0) {
         LOGE("Unable to create efs storage %s", data_path);
@@ -126,6 +134,7 @@ static int android_encrypt_primary_data(char *password)
         return ret;
     }
 
+    /* Restart device */
     android_reboot(ANDROID_RB_RESTART, 0, 0);
 
     return 0;
@@ -146,6 +155,7 @@ int android_encrypt_user_data(int user, char *password)
 
     LOGI("Encrypt user data for %d", user);
 
+    /* Primary user is device owner so it gets special attention */
     if (user == PRIMARY_USER) {
         return android_encrypt_primary_data(password);
     }
@@ -187,21 +197,27 @@ static int android_unlock_primary_user(char *password)
     struct crypto_header header;
     int ret;
 
+    /*
+     * Hopefully, the init library has saved a copy of the crypto header
+     */
     ret = read_crypto_header(&header, CRYPTO_HEADER_COPY);
     if (ret < 0)
         return ret;
 
+    /* Test the user provided password */
     ret = check_passwd(&header, password);
     if (ret < 0)
         return ret;
 
+    /* Setting vold.decrypt will stop class main */
     property_set("vold.decrypt", "trigger_reset_main");
     sleep(2);
+    /* Force unmount of the tmpfs */
     umount("/data", MNT_FORCE);
 
+    /* Unlock /data/data and /data/media/0 */
     memset(storage_path, 0, sizeof(storage_path));
     sprintf(storage_path, "%s%d", ANDROID_USER_DATA_PATH, PRIMARY_USER);
-
     ret = get_private_storage_path(private_dir_path, storage_path);
     if (ret < 0) {
         LOGE("Error getting private storage for %s", storage_path);
@@ -254,6 +270,8 @@ static int android_unlock_primary_user(char *password)
 
     property_set("crypto.primary_user", "decrypted");
     sleep(2);
+
+    /* Now that efs storages are mounted, restart the framework */
     property_set("vold.decrypt", "trigger_restart_framework");
 
     return 0;
@@ -411,48 +429,56 @@ int android_change_user_data_password(int user, char *old_password,
  */
 static int android_decrypt_primary_user_data(char *password)
 {
-    char storage_path[MAX_PATH_LENGTH];
+    char data_path[MAX_PATH_LENGTH], sdcard_path[MAX_PATH_LENGTH];
     char lockid[32] = { 0 };
     int ret = -1;
 
-    snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
-    acquire_wake_lock(PARTIAL_WAKE_LOCK, lockid);
     property_set("crypto.primary_user", "decrypting");
 
-    memset(storage_path, 0, sizeof(storage_path));
-    sprintf(storage_path, "%s%d/", ANDROID_USER_DATA_PATH, PRIMARY_USER);
-    killProcessesWithOpenFiles(ANDROID_USER_DATA_PATH, 2);
+    /*
+     * Send SIGKILL to all processes that have open files on /data/data
+     * and /data/media/0 than "gently" unmount the ecryptfs mountpoints
+     */
+    killProcessesWithOpenFiles(ANDROID_PRIMARY_USER_DATA_PATH, 2);
     ret = umount_ecryptfs(ANDROID_PRIMARY_USER_DATA_PATH);
     if (ret < 0) {
         LOGE("Error unmounting %s", ANDROID_PRIMARY_USER_DATA_PATH);
-        release_wake_lock(lockid);
         return ret;
     }
-
-    ret = EFS_recover_data_and_remove(storage_path, password);
-    if (ret < 0) {
-        LOGE("Error decrypting efs storage");
-        return ret;
-    }
-
-    memset(storage_path, 0, sizeof(storage_path));
-    sprintf(storage_path, "%s%d/", ANDROID_VIRTUAL_SDCARD_PATH,
+    memset(sdcard_path, 0, sizeof(sdcard_path));
+    sprintf(sdcard_path, "%s%d/", ANDROID_VIRTUAL_SDCARD_PATH,
         PRIMARY_USER);
-    killProcessesWithOpenFiles(storage_path, 2);
-    ret = EFS_lock(storage_path);
+    killProcessesWithOpenFiles(sdcard_path, 2);
+    ret = EFS_lock(sdcard_path);
     if (ret < 0) {
-        LOGE("Can't unlock efs storage");
+        LOGE("Can't unlock efs storage %s", sdcard_path);
+        return ret;
+    }
+
+    /* Get a power wakelock so we don't enter sleep */
+    snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
+    acquire_wake_lock(PARTIAL_WAKE_LOCK, lockid);
+
+    /*
+     * Restore the encrypted data to plain text for /data/data/
+     * and /data/media/0/
+     */
+    memset(data_path, 0, sizeof(data_path));
+    sprintf(data_path, "%s%d/", ANDROID_USER_DATA_PATH, PRIMARY_USER);
+    ret = EFS_recover_data_and_remove(data_path, password);
+    if (ret < 0) {
+        LOGE("Error decrypting efs storage %s", data_path);
+        release_wake_lock(lockid);
+        return ret;
+    }
+    ret = EFS_recover_data_and_remove(sdcard_path, password);
+    if (ret < 0) {
+        LOGE("Error decrypting efs storage %s", sdcard_path);
         release_wake_lock(lockid);
         return ret;
     }
 
-    ret = EFS_recover_data_and_remove(storage_path, password);
-    if (ret < 0) {
-        LOGE("Error decrypting efs storage");
-        release_wake_lock(lockid);
-        return ret;
-    }
-
+    /* Reboot device */
     android_reboot(ANDROID_RB_RESTART, 0, 0);
 
     return 0;
