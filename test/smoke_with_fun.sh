@@ -49,7 +49,7 @@ function clean() {
 	adb shell 'rm -rf '$2
 	adb shell 'rm -rf '$LOST_FOUND
 	adb logcat -c
-	set_selinux_permissions $SELINUX_ENFORCING
+#	set_selinux_permissions $SELINUX_ENFORCING
 }
 
 function set_selinux_permissions() {
@@ -73,140 +73,321 @@ function setup(){
 	adb shell 'echo aaa > '$1'/a.txt'
 	adb shell 'echo bbb > '$1'/b.txt'
 	adb shell 'echo ccc > '$1'/c.txt'
-	SELINUX_ENFORCING=$(adb shell getenforce | grep -c Enforcing)
-	set_selinux_permissions 0
+#	SELINUX_ENFORCING=$(adb shell getenforce | grep -c Enforcing)
+#	set_selinux_permissions 0
 }
 function create_storage() {
-	test1='CREATE a libefs '$1' container'
+	test='CREATE a libefs '$1' container'
 	adb shell efs-tools storage create $1 $2
 	if [[ `expr length $2` -le "3" ]]
 		then
-			ok0=$(adb logcat -d > $logfolder/log_test1.log && grep -c 'Passwd too short' $logfolder/log_test1.log)
+			ok0=$(adb logcat -d > $logfolder/log_create_storage.log && grep -c 'Passwd too short' $logfolder/log_create_storage.log)
 			if [[ $ok0 == "1" ]]
 				then
-					echo -e "\n$test1 did not succeed - password is too short - PASS"
+					echo -e "\n$test did not succeed - password is too short - PASS"
 				else
-					echo -e "\n$test1 did not succeed - password is too short - FAIL"
+					echo -e "\n$test did not succeed - password is too short - FAIL"
 			fi
 
 		else
 			#verify logcat
-			ok1=$(adb logcat -d > $logfolder/log_test1.log && grep -c 'Secure storage created for '$1 $logfolder/log_test1.log)
+			ok1=$(adb logcat -d > $logfolder/log_create_storage.log && grep -c 'Secure storage created for '$1 $logfolder/log_create_storage.log)
 			#ENCRYPTED_STORAGE_PATH should contain the encrypted files
 			ok2=$(adb shell ls $3 | grep -c ECRYPTFS)
 			ok3=$(adb shell ls -la /data/misc/keystore/ | grep -c $KEY)  
 			#if [[ $ok1 == "1" && $ok2 == "3" && $ok3 == "1" ]]		#if the hardcoded KEY is used ok3 is needed
 			if [[ $ok1 == "1" && $ok2 == "3" ]]
 			then
-				echo -e "\n$test1 - PASS"
+				echo -e "\n$test - PASS"
 			else
-				echo -e "\n$test1 - FAIL"
+				echo -e "\n$test - FAIL"
 			fi
 	fi
 	adb logcat -c
 }
 
 function unlock_storage() {
-	test2='UNLOCK the libefs '$1' container'
+	test='UNLOCK the libefs '$1' container'
 	adb shell efs-tools storage unlock $1 $2
 	#verify logcat
-	ok1=$(adb logcat -d >  $logfolder/log_test2.log && grep -c 'Secure storage '$1' unlocked' $logfolder/log_test2.log)
+	ok1=$(adb logcat -d >  $logfolder/log_unlock_storage.log && grep -c 'Secure storage '$1' unlocked' $logfolder/log_unlock_storage.log)
 	#$STORAGE_PATH should contain the files in plain text
 	ok2=$(adb shell ls $1| grep -c txt)
 	if [[ $ok1 == "1" && $ok2 == "3" ]]
 	then
-		echo -e "\n$test2 - PASS"
+		echo -e "\n$test - PASS"
 	else
-		echo -e "\n$test2 - FAIL"
+		echo -e "\n$test - FAIL"
 	fi
-
 	adb logcat -c
 }
 
 function lock_storage() {
-	test3='LOCK the libefs '$1' container'
+	test='LOCK the libefs '$1' container'
 	adb shell efs-tools storage lock $1
 	#verify logcat
-	ok1=$(adb logcat -d >  $logfolder/log_test3.log && grep -c 'Secure storage '$1' locked' $logfolder/log_test3.log)
+	ok1=$(adb logcat -d >  $logfolder/log_lock_storage.log && grep -c 'Secure storage '$1' locked' $logfolder/log_lock_storage.log)
 
 	#$STORAGE_PATH should be empty
 	ok2=$(adb shell ls $1 | grep -c txt)
 
 	if [[ $ok1 == "1" && $ok2 == "0" ]]
 	then
-		echo -e "\n$test3 - PASS"
+		echo -e "\n$test - PASS"
 	else
-		echo -e "\n$test3 - FAIL"
+		echo -e "\n$test - FAIL"
 	fi
 	adb logcat -c
 }
 
 function change_passwd() {
-	test4='CHANGE PASSWORD for the libefs '$1' container'
+	test='CHANGE PASSWORD for the libefs '$1' container'
 	#cleaning the logcat again
 	adb logcat -c
 	adb shell efs-tools storage change_passwd $1 $2 $3
       	if [[ `expr length $3` -le "3" ]]
 		then
-			ok0=$(adb logcat -d >  $logfolder/log_test4.log && grep -c 'New passwd too short' $logfolder/log_test4.log)
+			ok0=$(adb logcat -d >  $logfolder/log_change_passwd.log && grep -c 'New passwd too short' $logfolder/log_change_passwd.log)
 			if [[ $ok0 == "1" ]]
 				then
-					echo -e "\n$test4 did not succeed - password is too short - PASS"
+					echo -e "\n$test did not succeed - password is too short - PASS"
 				else
-					echo -e "\n$test4 did not succeed - password is too short - FAIL"
+					echo -e "\n$test did not succeed - password is too short - FAIL"
 			fi
 
 		else
 			#verify logcat
-			ok1=$(adb logcat -d >  $logfolder/log_test4.log && grep -c 'Change passwd successful for '$1' storage' $logfolder/log_test4.log)
+			ok1=$(adb logcat -d >  $logfolder/log_change_passwd.log && grep -c 'Change passwd successful for '$1' storage' $logfolder/log_change_passwd.log)
 			if [[ $ok1 == "1" ]]
 			then
-				echo -e "\n$test4 from: $2 to: $3 - PASS"
+				echo -e "\n$test from: $2 to: $3 - PASS"
 			else
-				echo -e "\n$test4 from: $2 to: $3 - FAIL"
+				echo -e "\n$test from: $2 to: $3 - FAIL"
 		fi
         fi
 	adb logcat -c
 }
 
 function restore_storage() {
-	test5='RESTORE the libefs '$1' container'
+	test='RESTORE the libefs '$1' container'
 	
 	adb shell efs-tools storage restore $1 $2
 
 	#verify logcat
-	ok3=$(adb logcat -d >  $logfolder/log_test5.log && grep -c 'Secure storage '$1' removed' $logfolder/log_test5.log)
-	ok4=$(adb logcat -d >  $logfolder/log_test5.log && grep -c 'Secure storage '$1' restored' $logfolder/log_test5.log)
+	ok1=$(adb logcat -d >  $logfolder/log_restore_storage.log && grep -c 'Secure storage '$1' removed' $logfolder/log_restore_storage.log)
+	ok2=$(adb logcat -d >  $logfolder/log_restore_storage.log && grep -c 'Secure storage '$1' restored' $logfolder/log_restore_storage.log)
 
 	#ENCRYPTED_STORAGE_PATH folder does not exist anymore
-	ok5=$(adb shell ls $ENCRYPTED_STORAGE_PATH | grep -c ECRYPTFS)
+	ok3=$(adb shell ls $ENCRYPTED_STORAGE_PATH | grep -c ECRYPTFS)
 	#STORAGE_PATH folder contains the files in plaintext
-	ok6=$(adb shell ls $1 | grep -c txt)
+	ok4=$(adb shell ls $1 | grep -c txt)
 
-	if [[ $ok3 == "1" && $ok4 == "1" && $ok5 == "0" && $ok6 == "3" ]]
+	if [[ $ok1 == "1" && $ok2 == "1" && $ok3 == "0" && $ok4 == "3" ]]
 	then
-		echo -e "\n$test5 - PASS"
+		echo -e "\n$test - PASS"
 	else
-		echo -e "\n$test5 - FAIL"
+		echo -e "\n$test - FAIL"
 	fi
 	adb logcat -c
 }
 
 function remove_storage() {
-	test6='REMOVE the libefs container'
+	test='REMOVE the libefs container'
 	adb shell efs-tools storage remove $1
 	#keys are no more present in /data/misc/keystore
 	ok1=$(adb shell ls -la /data/misc/keystore/ | grep -c $KEY)  
 	#verify logcat
-	ok3=$(adb logcat -d >  $logfolder/log_test6.log && grep -c 'Secure storage '$1' removed' $logfolder/log_test6.log)
+	ok2=$(adb logcat -d >  $logfolder/log_remove_storage.log && grep -c 'Secure storage '$1' removed' $logfolder/log_remove_storage.log)
 	#STORAGE_PATH and ENCRYPTED_STORAGE_PATH folders are now removed/empty
-	ok4=$(adb shell ls $3 | grep -c ECRYPTFS)
-	ok5=$(adb shell ls $1 | grep -c txt)
-	#if [[ $ok1 == "0" && $ok3 == "1" && $ok4 == "0" && $ok5 == "0" ]]   #if the hardcoded KEY is used ok1 is needed
-	if [[ $ok3 == "1" && $ok4 == "0" && $ok5 == "0" ]]
+	ok3=$(adb shell ls $3 | grep -c ECRYPTFS)
+	ok4=$(adb shell ls $1 | grep -c txt)
+	#if [[ $ok1 == "0" && $ok2 == "1" && $ok3 == "0" && $ok4 == "0" ]]   #if the hardcoded KEY is used ok1 is needed
+	if [[ $ok2 == "1" && $ok3 == "0" && $ok4 == "0" ]]
 	then
-		echo -e "\n$test6 - PASS"
+		echo -e "\n$test - PASS"
 	else
-		echo -e "\n$test6 - FAIL"
+		echo -e "\n$test - FAIL"
 	fi
+}
+
+
+#VDC Functions
+function vdc_create_storage() {
+# "Usage: efs create <storage_path> <passwd>"
+	test='CREATE a libefs '$1' container with VDC'
+	adb shell vdc efs create $1 $2
+	if [[ `expr length $2` -le "3" ]]
+		then
+			ok0=$(adb logcat -d > $logfolder/log_vdc_create_storage.log && grep -c 'Passwd too short' $logfolder/log_vdc_create_storage.log)
+			if [[ $ok0 == "1" ]]
+				then
+					echo -e "\n$test did not succeed - password is too short - PASS"
+				else
+					echo -e "\n$test did not succeed - password is too short - FAIL"
+			fi
+
+		else
+			#verify logcat
+			ok1=$(adb logcat -d > $logfolder/log_vdc_create_storage.log && grep -c 'Secure storage created for '$1 $logfolder/log_vdc_create_storage.log)
+			#ENCRYPTED_STORAGE_PATH should contain the encrypted files
+			ok2=$(adb shell ls $3 | grep -c ECRYPTFS)
+			ok3=$(adb shell ls -la /data/misc/keystore/ | grep -c $KEY)  
+			#if [[ $ok1 == "1" && $ok2 == "3" && $ok3 == "1" ]]		#if the hardcoded KEY is used ok3 is needed
+			if [[ $ok1 == "1" && $ok2 == "3" ]]
+			then
+				echo -e "\n$test - PASS"
+			else
+				echo -e "\n$test - FAIL"
+			fi
+	fi
+	adb logcat -c
+
+}
+
+function vdc_unlock_storage() {
+# "Usage: efs unlock <storage_path> <passwd>"
+	test='UNLOCK the libefs '$1' container with VDC'
+	adb shell vdc efs unlock $1 $2
+	#verify logcat	
+	ok1=$(adb logcat -d >  $logfolder/log_vdc_unlock_storage.log && grep -c 'Secure storage '$1' unlocked' $logfolder/log_vdc_unlock_storage.log)
+	#$STORAGE_PATH should contain the files in plain text
+	ok2=$(adb shell ls $1| grep -c txt)
+	if [[ $ok1 == "1" && $ok2 == "3" ]]
+	then
+		echo -e "\n$test - PASS"
+	else
+		echo -e "\n$test - FAIL"
+	fi
+	adb logcat -c
+}
+
+function vdc_lock_storage() {
+# "Usage: efs lock <storage_path>" 
+	test='LOCK the libefs '$1' container with VDC'
+	adb shell vdc efs lock $1
+
+	#verify logcat
+	ok1=$(adb logcat -d >  $logfolder/log_vdc_lock_storage.log && grep -c 'Secure storage '$1' locked' $logfolder/log_vdc_lock_storage.log)
+
+	#$STORAGE_PATH should be empty
+	ok2=$(adb shell ls $1 | grep -c txt)
+
+	if [[ $ok1 == "1" && $ok2 == "0" ]]
+	then
+		echo -e "\n$test - PASS"
+	else
+		echo -e "\n$test - FAIL"
+	fi
+	adb logcat -c
+
+
+}
+
+function vdc_change_passwd() {
+# "Usage: efs change_passwd <storage_path> <old_passwd> <new_passwd>"
+	test='CHANGE PASSWORD for the libefs '$1' container with VDC'
+	adb shell vdc efs change_passwd $1 $2 $3
+      	if [[ `expr length $3` -le "3" ]]
+		then
+			ok0=$(adb logcat -d >  $logfolder/log_vdc_change_passwd.log && grep -c 'New passwd too short' $logfolder/log_vdc_change_passwd.log)
+			if [[ $ok0 == "1" ]]
+				then
+					echo -e "\n$test did not succeed - password is too short - PASS"
+				else
+					echo -e "\n$test did not succeed - password is too short - FAIL"
+			fi
+
+		else
+			#verify logcat
+			ok1=$(adb logcat -d >  $logfolder/log_vdc_change_passwd.log && grep -c 'Change passwd successful for '$1' storage' $logfolder/log_vdc_change_passwd.log)
+			if [[ $ok1 == "1" ]]
+			then
+				echo -e "\n$test from: $2 to: $3 - PASS"
+			else
+				echo -e "\n$test from: $2 to: $3 - FAIL"
+		fi
+        fi
+	adb logcat -c
+}
+
+function vdc_recover_storage() {
+# "Usage: efs recover <storage_path> <password>"
+	test='RESTORE the libefs '$1' container with VDC'
+	adb shell vdc efs recover $1 $2
+	#verify logcat
+	ok1=$(adb logcat -d >  $logfolder/log_vdc_restore_storage.log && grep -c 'Secure storage '$1' removed' $logfolder/log_vdc_restore_storage.log)
+	ok2=$(adb logcat -d >  $logfolder/log_vdc_restore_storage.log && grep -c 'Secure storage '$1' restored' $logfolder/log_vdc_restore_storage.log)
+
+	#ENCRYPTED_STORAGE_PATH folder does not exist anymore
+	ok3=$(adb shell ls $ENCRYPTED_STORAGE_PATH | grep -c ECRYPTFS)
+	#STORAGE_PATH folder contains the files in plaintext
+	ok4=$(adb shell ls $1 | grep -c txt)
+
+	if [[ $ok1 == "1" && $ok2 == "1" && $ok3 == "0" && $ok4 == "3" ]]
+	then
+		echo -e "\n$test - PASS"
+	else
+		echo -e "\n$test - FAIL"
+	fi
+	adb logcat -c
+}
+
+function vdc_remove_storage() {
+# "Usage: efs remove <storage_path>"
+	test='REMOVE the libefs container with VDC'
+	adb shell vdc efs remove $1
+	#keys are no more present in /data/misc/keystore
+	ok1=$(adb shell ls -la /data/misc/keystore/ | grep -c $KEY)  
+	#verify logcat
+	ok2=$(adb logcat -d >  $logfolder/log_vdc_remove_storage.log && grep -c 'Secure storage '$1' removed' $logfolder/log_vdc_remove_storage.log)
+	#STORAGE_PATH and ENCRYPTED_STORAGE_PATH folders are now removed/empty
+	ok3=$(adb shell ls $3 | grep -c ECRYPTFS)
+	ok4=$(adb shell ls $1 | grep -c txt)
+	#if [[ $ok1 == "0" && $ok2 == "1" && $ok3 == "0" && $ok4 == "0" ]]   #if the hardcoded KEY is used ok1 is needed
+	if [[ $ok2 == "1" && $ok3 == "0" && $ok4 == "0" ]]
+	then
+		echo -e "\n$test - PASS"
+	else
+		echo -e "\n$test - FAIL"
+	fi
+}
+
+function vdc_stat(){
+# "Usage: efs stat <storage_path>"
+	adb shell vdc efs stat $1
+}
+
+function vdc_encrypt_user_data(){
+# "Usage: efs encrypt_user_data <userId> <password>"
+	adb shell vdc efs stat $1
+}
+
+function vdc_unlock_user_data(){
+# "Usage: efs unlock_user_data <userId> <password>"
+	adb shell vdc efs unlock_user_data $1 $2
+}
+
+function vdc_lock_user_data(){
+# "Usage: efs lock_user_data <userId>"
+	adb shell vdc efs lock_user_data $1
+}
+
+function vdc_change_user_data_passwd(){
+# "Usage: efs change_user_data_passwd <userId> <old_passwd> <new_passwd>"
+	adb shell vdc efs change_user_data_passwd $1 $2 $3
+}
+
+function vdc_decrypt_user_data(){
+# "Usage: efs decrypt_user_data <userId> <password>"
+	adb shell vdc efs decrypt_user_data $1 $2
+}
+
+function vdc_remove_user_encrypted_data(){
+# "Usage: efs remove_user_encrypted_data <userId>"
+	adb shell vdc efs remove_user_encrypted_data $1
+}
+
+function vdc_user_stat(){
+# "Usage: efs user_stat <userId>"
+	adb shell vdc efs user_stat $1
 }
