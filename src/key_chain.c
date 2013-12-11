@@ -5,7 +5,6 @@
  *
  * @brief
  * Functions for managing the kernel key ring.
- * Built on top of keyutils shared library calls
  */
 
 /**
@@ -33,7 +32,11 @@
 #include <efs/key_chain.h>
 #include <efs/file_utils.h>
 #include <efs/efs.h>
-#include <keyutil/keyutil.h>
+#include <asm/unistd.h>
+#include <linux/keyctl.h>
+#include <linux/key.h>
+
+typedef int32_t key_serial_t;
 
 /**
  * Generates an ecryptfs token
@@ -82,9 +85,7 @@ int add_ecryptfs_key(unsigned char *key, char *sig, unsigned char *salt)
 
     generate_auth_tok(&tok, sig, (char *)salt, (char *)key);
 
-    ret =
-        add_key(KEY_TYPE, sig, (void *)&tok,
-            sizeof(struct ecryptfs_auth_tok), KEY_SPEC_USER_KEYRING);
+    ret = syscall(__NR_add_key, KEY_TYPE, sig, (void *)&tok, sizeof(struct ecryptfs_auth_tok), KEY_SPEC_USER_KEYRING);
     if (ret == -1) {
         ret = -errno;
         LOGE("Error adding key with sig %s; ret = [%d]\n : %s", sig,
@@ -109,13 +110,13 @@ int remove_ecryptfs_key(char *sig)
     int ret;
     key_serial_t id;
 
-    id = keyctl(KEYCTL_SEARCH, KEY_SPEC_USER_KEYRING, KEY_TYPE, sig, 0);
+    id = syscall(__NR_keyctl, KEYCTL_SEARCH, KEY_SPEC_USER_KEYRING, KEY_TYPE, sig, 0);
     if (id < 0) {
         LOGE("Failed to find key with sig %s\n", sig);
         return id;
     }
 
-    ret = keyctl(KEYCTL_UNLINK, id, KEY_SPEC_USER_KEYRING);
+    ret = syscall(__NR_keyctl, KEYCTL_UNLINK, id, KEY_SPEC_USER_KEYRING);
     if (ret < 0) {
         LOGE("Failed to unlink key with sig %s: %s\n",
              sig, strerror(ret));
