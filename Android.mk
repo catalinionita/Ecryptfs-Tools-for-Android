@@ -38,11 +38,10 @@ LOCAL_SRC_FILES:= \
 	src/key_store.c
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/src/include \
-	$(LOCAL_PATH)/external \
+	$(LOCAL_PATH)/linux_headers/include \
 	external/openssl/include
 LOCAL_SHARED_LIBRARIES := \
 	libcrypto \
-	libkeyutil \
 	libcutils \
 	liblog \
 	libhardware_legacy
@@ -67,6 +66,3 @@ LOCAL_CFLAGS += -Wall
 LOCAL_SRC_FILES := src/main.c
 LOCAL_SHARED_LIBRARIES := libefs
 include $(BUILD_EXECUTABLE)
-
-#keyutil shared library
-include $(LOCAL_PATH)/external/keyutil/Android.mk
