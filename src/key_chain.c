@@ -34,7 +34,6 @@
 #include <efs/efs.h>
 #include <asm/unistd.h>
 #include <linux/keyctl.h>
-#include <linux/key.h>
 
 typedef int32_t key_serial_t;
 
