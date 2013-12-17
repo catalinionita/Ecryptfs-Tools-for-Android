@@ -19,7 +19,7 @@ Since Android is build on top of the Linux kernel, EFS-Tools library and executa
 
 Supported devices:
 ---
-x86 emulator - in progress
+x86 emulator - https://github.com/catalinionita/Ecryptfs-Tools-for-Android/wiki/Building-AOSP-4.4_r1.2-with-EFS-Tools-for-x86-Android-Emulator
 
 Nexus 4 - https://github.com/catalinionita/Ecryptfs-Tools-for-Android/wiki/Building-AOSP-4.4_r1.2-with-efs-tools-on-Nexus-4-Phone
 
