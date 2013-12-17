@@ -1,27 +1,37 @@
 EFS-Tools for Android
-==========================
+===
 
-What's the purpose of this project?
+What is EFS-Tools?
 ---
-The aim of this project is to provide a set of tools that enable encrypted file system (EFS), like ecryptfs, in Android. Based on these tools, Android user data encryption feature is implemented as a prof of concept.
 
-How will this improve the Android user experience? 
+EFS-Tools is a set of tools and libraries that enable encrypted file system support in Android. The tools are based on ecryptfs Linux kernel module and provides interfaces to manage ecryptfs mount points.
+
+What is ecryptfs?
 ---
-There are 2 main privacy features that Android end users and application developers may benefit from:
 
-      a) Encryption of user data (currently Android has only full device encryption) ---- in progress
-
-      b) Creation of application secure file storage ---- ToDo
-
-What's ecryptfs?
----
 http://ecryptfs.org/
+
 
 What devices are supported?
 ---
-Nexus 4 phone with Android 4.4_r1.2 (kitkat).
-Checkout the wiki on how to get started: https://github.com/catalinionita/Ecryptfs-Tools-for-Android/wiki/Building-AOSP-4.4_r1.2-with-efs-tools
+
+Since Android is build on top of the Linux kernel, EFS-Tools library and executables can be easily ported to any Android device independently of the AOSP version. However, there is a small demo of EFS-Tools library, which requires graphicall interface. For this to work you must download and build the  Android 4.4_r1.2 (kitkat) tree.
+
+Supported devices:
+---
+x86 emulator - in progress
+
+Nexus 4 - https://github.com/catalinionita/Ecryptfs-Tools-for-Android/wiki/Building-AOSP-4.4_r1.2-with-efs-tools-on-Nexus-4-Phone
+
+Nexus 7 - https://github.com/catalinionita/Ecryptfs-Tools-for-Android/wiki/Building-AOSP-4.4_r1.2-with-efs-tools-on-Nexus-7-Tablet
 
 
+What is the status of the project?
+---
+Under development. Any suggestions, contributions, code reviews and bug reports are welcome.
+
+
+___
 --Catalin
+
 
