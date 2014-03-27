@@ -22,7 +22,7 @@ In order to run it, issue one the following commands:
 ./testsuite.sh
 	In this case all the output logs will be stored in a new folder named logs_<date_in_seconds_since_1970>, or
 ./testsuite.sh -o <folder_logs>
-	Where folder_logs will be a specific STORAGE_PATH to the folder where the logs would be saved.
+	Where folder_logs will be a specific PATH to the folder where the logs would be saved.
 
 There are several functions efs-tools related, like:
 1. CREATE a libefs container
@@ -35,31 +35,31 @@ There are several functions efs-tools related, like:
 Each function has its own call and list of required parameters.
 
 1. Create a libefs container
-Shell command syntax: adb shell efs-tools storage create STORAGE_PATH PASSWORD
+Shell command syntax: adb shell efs-tools storage create <STORAGE_PATH> <PASSWORD>
 Expected output: A properly logcat message will be recorded (Secure storage created for STORAGE_PATH). 
 Let the STORAGE_PATH be the following: /data/new_folder.  After creation of the secure storage, a new folder will be created, called: /data/.new_folder (called further ENCRYPTED_STORAGE_PATH), containing all the files inside the STORAGE_PATH encrypted with ECRYPTFS.
 Also, the STORAGE_PATH folder will be empty.
 
 2. UNLOCK the libefs container
-Shell command syntax: adb shell efs-tools storage unlock STORAGE_PATH PASSWORD
+Shell command syntax: adb shell efs-tools storage unlock <STORAGE_PATH> <PASSWORD>
 Expected output:  A properly logcat message will be recorded (Secure storage STORAGE_PATH unlocked). STORAGE_PATH is again filled with the original files in plain text.
 Prerequisites: An already created secure storage should exist.
 
 3. LOCK the libefs container
-Shell command syntax: adb shell efs-tools storage lock STORAGE_PATH
+Shell command syntax: adb shell efs-tools storage lock <STORAGE_PATH>
 Expected output:  A properly logcat message will be recorded (Secure storage STORAGE_PATH locked). STORAGE_PATH folder should be again empty.
 Prerequisites: An already created and unlocked secure storage should exist.
 
 4. CHANGE PASSWORD for the libefs container
-Shell command syntax: adb shell efs-tools storage change_passwd STORAGE_PATH OLD_PASSWORD NEW_PASSWORD
+Shell command syntax: adb shell efs-tools storage change_passwd <STORAGE_PATH> <OLD_PASSWORD> <NEW_PASSWORD>
 Expected output:  A properly logcat message will be recorded (Change password successful for STORAGE_PATH storage). After the password has been changed, an unlocking should be performed w/o errors.
 Prerequisites: An already created and locked secure storage should exist. 
 
 5. RESTORE the libefs container
-Shell command syntax: adb shell efs-tools storage restore STORAGE_PATH PASSWORD
+Shell command syntax: adb shell efs-tools storage restore <STORAGE_PATH> <PASSWORD>
 Expected output:  A properly logcat messages will be recorded (Secure storage STORAGE_PATH removed; Secure storage STORAGE_PATH restored). ENCRYPTED_STORAGE_PATH folder should not exist anymore. STORAGE_PATH folder should contain all the original files in plain text.
 Prerequisites: An already created secure storage should exist.
 
 6. REMOVE the libefs container
-Shell command syntax: adb shell efs-tools storage remove STORAGE_PATH
+Shell command syntax: adb shell efs-tools storage remove <STORAGE_PATH>
 Expected output:  A properly logcat message will be recorded (Secure storage STORAGE_PATH removed). ENCRYPTED_STORAGE_PATH should be removed and STORAGE_PATH folder should be empty.
