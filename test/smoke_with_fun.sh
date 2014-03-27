@@ -359,7 +359,7 @@ function vdc_stat(){
 
 function vdc_encrypt_user_data(){
 # "Usage: efs encrypt_user_data <userId> <password>"
-	adb shell vdc efs stat $1
+	adb shell vdc efs encrypt_user_data $1 $2
 }
 
 function vdc_unlock_user_data(){
