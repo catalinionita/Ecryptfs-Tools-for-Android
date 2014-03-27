@@ -1,11 +1,17 @@
 EFS-Tools for Android
 ===
 
-What is EFS-Tools?
+What is EFS-Tools project?
 ---
 
-EFS-Tools is a set of tools and libraries that enable encrypted file system support in Android. The tools are based on ecryptfs Linux kernel module and provides interfaces to manage ecryptfs mount points.
+EFS-Tools is a set of user space tools and libraries that enable encrypted file system support in Android OS. The project relies on ecryptfs Linux kernel module and aims to provide better methods for protecting end user data. 
 
+Demos: 
+
+    https://www.youtube.com/watch?v=JNo68jGfh6A
+
+    https://www.youtube.com/watch?v=jpj1FRKCBC8
+       
 What is ecryptfs?
 ---
 
