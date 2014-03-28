@@ -49,7 +49,7 @@ function clean() {
 	adb shell 'rm -rf '$2
 	adb shell 'rm -rf '$LOST_FOUND
 	adb logcat -c
-#	set_selinux_permissions $SELINUX_ENFORCING
+	set_selinux_permissions $SELINUX_ENFORCING
 }
 
 function set_selinux_permissions() {
@@ -73,8 +73,8 @@ function setup(){
 	adb shell 'echo aaa > '$1'/a.txt'
 	adb shell 'echo bbb > '$1'/b.txt'
 	adb shell 'echo ccc > '$1'/c.txt'
-#	SELINUX_ENFORCING=$(adb shell getenforce | grep -c Enforcing)
-#	set_selinux_permissions 0
+	SELINUX_ENFORCING=$(adb shell getenforce | grep -c Enforcing)
+	set_selinux_permissions 0
 }
 function create_storage() {
 	test='CREATE a libefs '$1' container'
