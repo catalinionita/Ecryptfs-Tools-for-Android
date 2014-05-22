@@ -26,7 +26,7 @@ endif
 # libefs shared library
 include $(CLEAR_VARS)
 LOCAL_MODULE := libefs
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := eng
 LOCAL_SRC_FILES:= \
 	src/efs.c \
 	src/android_user_encryption.c \
@@ -51,7 +51,7 @@ include $(BUILD_SHARED_LIBRARY)
 # libefs_init - small static library to be built with init
 include $(CLEAR_VARS)
 LOCAL_MODULE := libefs_init
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := eng
 LOCAL_SRC_FILES += src/init.c
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
 LOCAL_CFLAGS += -Wall
@@ -60,7 +60,7 @@ include $(BUILD_STATIC_LIBRARY)
 # libefs testing tool
 include $(CLEAR_VARS)
 LOCAL_MODULE:= efs-tools
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := eng
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
 LOCAL_CFLAGS += -Wall
 LOCAL_SRC_FILES := src/main.c
