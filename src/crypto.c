@@ -148,9 +148,30 @@ int decrypt_buffer(unsigned char *encrypted_text, int length,
  */
 int generate_crypto_header(struct crypto_header *header)
 {
-    int fd, ret;
+    int fd, ret, entropy;
 
-    /* TODO: Check if we get suficient entropy from /dev/urandom */
+    fd = open("/proc/sys/kernel/random/poolsize", O_RDONLY);
+    if (fd < 0) {
+	LOGE("Can't open /proc/sys/kernel/random/poolsize");
+	return fd;
+    }
+    
+    /* open poolsize and read from it */
+    ret = read(fd, header->read_entropy, ENTROPY_MAX_LEN);
+    if ( ret != ENTROPY_MAX_LEN) {
+    	LOGE("Can't read from /proc/sys/kernel/random/poolsize");
+	close(fd);
+	return -1;
+    }else
+	if (ret == ENTROPY_MAX_LEN){
+		entropy=atoi(header->read_entropy);
+		/* If we don't have enough entropy to generate SHA512 */
+		if (entropy < 512) {
+			LOGE("Not enough entropy in poolsize");
+			return -1;
+		}
+	}
+
     fd = open("/dev/urandom", O_RDONLY);
     if (fd < 0) {
         LOGE("Can't open /dev/urandom");

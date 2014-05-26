@@ -33,9 +33,21 @@
 
 void show_help()
 {
-    printf("Usage: efs-tools storage <command> <params>\n");
-    printf
-        ("Posible commands\ncreate\n\t->efs-tools storage create <path> <password>\nunlock\n\t->efs-tools storage unlock <path> <password>\nlock\n\t->efs-tools storage lock <path>\nremove\n\t->efs-tools storage remove <path>\nchange password\n\t->efs-tools storage change_passwd <path> <old_password> <new_password>\nrestore\n\t->efs-tools storage restore <path> <password>\n");
+	printf("Usage: efs-tools storage <command> <params>\n");
+	
+	printf("Posible commands\n \
+		create\n \
+		\t->efs-tools storage create <path> <password>\n \
+		unlock\n \
+		\t->efs-tools storage unlock <path> <password>\n \
+		lock\n \
+		\t->efs-tools storage lock <path>\n \
+		remove\n \
+		\t->efs-tools storage remove <path>\n \
+		change password\n \
+		\t->efs-tools storage change_passwd <path> <old_password> <new_password>\n \
+		restore\n \
+		\t->efs-tools storage restore <path> <password>\n");
 }
 
 int main(int argc, char *argv[])

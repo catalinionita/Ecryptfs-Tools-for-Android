@@ -19,6 +19,7 @@
 #ifndef EFS_KEY_CHAIN_H
 #define EFS_KEY_CHAIN_H
 
+#define ENTROPY_MAX_LEN 4
 #define PASSWD_SALT_LEN 16
 #define ECRYPTFS_KEY_LEN 16
 #define SHA512_DIGEST_LENGTH 64
@@ -40,6 +41,7 @@ struct crypto_header {
         unsigned char fnek[ECRYPTFS_KEY_LEN];
         unsigned char salt[PASSWD_SALT_LEN];
         unsigned char signature[SHA512_DIGEST_LENGTH];
+	unsigned char read_entropy[ENTROPY_MAX_LEN];
         int stat;
 };
 
