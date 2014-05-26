@@ -55,13 +55,12 @@ void pbkdf2(char *passwd, int passwd_len, unsigned char *salt,
 }
 
 /**
- * Encrypt a buffer using AES-CBC
- * Note that this function is used to encrypt % 128 bit text (no padding) and
- * the resulted encrypted_text should be at least the size of the plain_text
+ * Encrypt 256 bit keys using AES-CBC
+ * Note that this function is used to encrypt 256 bit text (no padding)
  * @param plain_text_text Plain text
  * @param length Plain text length
  * @param encrypted_text Encryption result
- * @param encryption_key The key used for encryption (derived from pbkdf2)
+ * @param encryption_key The key used for encryption
  * @param IV IV generated from pbkdf2
  *
  * @return 0 on success, negative value on error
@@ -74,10 +73,16 @@ int encrypt_buffer(unsigned char *plain_text, int length,
     int len;
 
     /* Initialize the encryption engine */
-    if (!EVP_EncryptInit(&ctx, EVP_aes_128_cbc(), encryption_key, IV)) {
+    if (!EVP_EncryptInit(&ctx, EVP_aes_256_cbc(), encryption_key, IV)) {
         LOGE("EVP_EncryptInit failed");
         return -1;
     }
+
+	/* Do an extra check before turning off padding */
+	if ((length % 32) != 0) {
+		LOGE("%d byte keys are not supported", length);
+		return -1;
+	}
 
     /* Turn off padding */
     EVP_CIPHER_CTX_set_padding(&ctx, 0);
@@ -98,9 +103,8 @@ int encrypt_buffer(unsigned char *plain_text, int length,
 }
 
 /**
- * Decrypt a buffer using AES-CBC
- * Note that this function is used to encrypt % 128 bit text (no padding) and
- * the resulted encrypted_text should be at least the size of the plain_text
+ * Decrypt text using 256 AES-CBC
+ * Note that this function is used to decrypt %256 text (no padding)
  * @param encrypted_text Encrypted buffer
  * @param plain_text Result after decryption
  * @param decryption_key Decryption key
@@ -116,10 +120,16 @@ int decrypt_buffer(unsigned char *encrypted_text, int length,
     int len;
 
     /* Initialize the decryption engine */
-    if (!EVP_DecryptInit(&ctx, EVP_aes_128_cbc(), decryption_key, IV)) {
+    if (!EVP_DecryptInit(&ctx, EVP_aes_256_cbc(), decryption_key, IV)) {
         LOGE("EVP_DecryptInit failed");
         return -1;
     }
+
+	/* Do an extra check before turning off padding */
+	if ((length % 32) != 0) {
+		LOGE("%d byte keys are not supported", length);
+		return -1;
+	}
 
     /* Turn off padding */
     EVP_CIPHER_CTX_set_padding(&ctx, 0);
@@ -202,6 +212,7 @@ int encrypt_crypto_header(struct crypto_header *header,
     int ret;
 
     /* encrypt fefek */
+	memset(buffer, 0, sizeof(buffer));
     memcpy(buffer, header->fefek, ECRYPTFS_KEY_LEN);
     ret =
         encrypt_buffer(buffer, ECRYPTFS_KEY_LEN, header->fefek,
@@ -212,6 +223,7 @@ int encrypt_crypto_header(struct crypto_header *header,
     }
 
     /* encrypt fnek */
+	memset(buffer, 0, sizeof(buffer));
     memcpy(buffer, header->fnek, ECRYPTFS_KEY_LEN);
     ret =
         encrypt_buffer(buffer, ECRYPTFS_KEY_LEN, header->fnek,
@@ -222,6 +234,7 @@ int encrypt_crypto_header(struct crypto_header *header,
     }
 
     /* encrypt signature */
+	memset(buffer, 0, sizeof(buffer));
     memcpy(buffer, header->signature, SHA512_DIGEST_LENGTH);
     ret =
         encrypt_buffer(buffer, SHA512_DIGEST_LENGTH, header->signature,
@@ -250,6 +263,7 @@ int decrypt_crypto_header(struct crypto_header *header,
     int ret;
 
     /* decrypt fefek */
+	memset(buffer, 0, sizeof(buffer));
     memcpy(buffer, header->fefek, ECRYPTFS_KEY_LEN);
     ret =
         decrypt_buffer(buffer, ECRYPTFS_KEY_LEN, header->fefek,
@@ -260,6 +274,7 @@ int decrypt_crypto_header(struct crypto_header *header,
     }
 
     /* decrypt fnek */
+	memset(buffer, 0, sizeof(buffer));
     memcpy(buffer, header->fnek, ECRYPTFS_KEY_LEN);
     ret =
         decrypt_buffer(buffer, ECRYPTFS_KEY_LEN, header->fnek,
@@ -270,6 +285,7 @@ int decrypt_crypto_header(struct crypto_header *header,
     }
 
     /* decrypt signature */
+	memset(buffer, 0, sizeof(buffer));
     memcpy(buffer, header->signature, SHA512_DIGEST_LENGTH);
     ret =
         decrypt_buffer(buffer, SHA512_DIGEST_LENGTH, header->signature,
@@ -379,8 +395,8 @@ int generate_crypt_info(char *storage_path, char *passwd)
         return ret;
     }
 
-    /* Generate 256 bits from password; the first 128 bits will be the
-     * encryption key, and the rest will be the IV
+    /* Generate 512 bits from password; the first 256 bits
+	 * will used to protect fefek && fnek, and the rest will generate the IV
      */
     pbkdf2(passwd, passwd_len, header.salt, buffer, 2 * ECRYPTFS_KEY_LEN);
     /* Encrypt fefek and fnek */
