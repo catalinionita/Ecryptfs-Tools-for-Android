@@ -1,14 +1,14 @@
 #!/bin/bash
 
-#vold integration
+# Vold integration
 cp external/efs-tools/integration/vold/EncryptedFileStorageCmd.cpp system/vold/
 cp external/efs-tools/integration/vold/EncryptedFileStorageCmd.h system/vold/
 git apply external/efs-tools/integration/vold/Vold-integration.patch --directory=system/vold/
-#core integration
+# Core integration
 git apply external/efs-tools/integration/core/Core-integration.patch --directory=system/core/
-#framework integration
+# Framework integration
 git apply external/efs-tools/integration/frameworks-base/MountManagerService-integration.patch --directory=frameworks/base/
-#Settings integration
+# Settings integration
 git apply external/efs-tools/integration/settings/Settings-integration.patch --directory=packages/apps/Settings/
-#SeLinux policy integration
+# SeLinux policy integration
 git apply external/efs-tools/integration/sepolicy/EFS-SeLinux-Policy.patch --directory=external/sepolicy/

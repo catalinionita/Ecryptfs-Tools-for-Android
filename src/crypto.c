@@ -493,13 +493,13 @@ int change_passwd(char *storage_path, char *old_passwd, char *new_passwd)
         return ret;
     }
 
-    /* Generate 256 bits from the new password; the first 128 bits will be the
-     * encryption key, and the rest will be the IV
+    /* Generate 256 bits from the new password; the first 128 bits will be used
+     * to protect crypto keys, and the rest will be used as IV
      */
     pbkdf2(new_passwd, new_passwd_len, header.salt, buffer,
            2 * ECRYPTFS_KEY_LEN);
 
-    /* Encrypt with the new passwd */
+    /* Rencrypt crypto header with the new password */
     ret = encrypt_crypto_header(&header, encryption_key, IV);
     if (ret < 0) {
         LOGE("Failed to encrypt crypto header");
