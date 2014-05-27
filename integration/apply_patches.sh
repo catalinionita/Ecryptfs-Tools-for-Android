@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# force a clean tree before applying patches
+repo forall -c git reset --hard HEAD
+repo forall -c git clean -df
 # Vold integration
 cp external/efs-tools/integration/vold/EncryptedFileStorageCmd.cpp system/vold/
 cp external/efs-tools/integration/vold/EncryptedFileStorageCmd.h system/vold/
