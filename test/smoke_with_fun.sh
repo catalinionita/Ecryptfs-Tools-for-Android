@@ -75,6 +75,9 @@ function setup(){
 	adb shell 'echo ccc > '$1'/c.txt'
 	SELINUX_ENFORCING=$(adb shell getenforce | grep -c Enforcing)
 	set_selinux_permissions 0
+	adb shell 'chcon u:test_a:test_a:s0 '$1'/a.txt'
+	adb shell 'chcon u:test_b:test_b:s0 '$1'/b.txt'
+	adb shell 'chcon u:test_c:test_c:s0 '$1'/c.txt'
 }
 function create_storage() {
 	test='CREATE a libefs '$1' container'
@@ -102,6 +105,20 @@ function create_storage() {
 			else
 				echo -e "\n$test - FAIL"
 			fi
+	fi
+	adb logcat -c
+}
+
+function check_labels() {
+	test='CHECK correct SeLinux labels'
+	labela=$(adb shell 'ls -lZ '$1'' | grep 'u:test_a:test_a:s0')
+	labelb=$(adb shell 'ls -lZ '$1'' | grep 'u:test_b:test_b:s0')
+	labelc=$(adb shell 'ls -lZ '$1'' | grep 'u:test_c:test_c:s0')
+	if [[ -n $labela && -n $labelb && -n $labelc ]]
+		then
+			echo -e "\n$test - PASS"
+		else
+			echo -e "\n$test - FAIL"
 	fi
 	adb logcat -c
 }

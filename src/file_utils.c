@@ -34,6 +34,7 @@
 #include <utime.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <selinux/selinux.h>
 #include <efs/efs.h>
 #include <efs/file_utils.h>
 #include <efs/key_chain.h>
@@ -42,6 +43,7 @@
 typedef struct file_info file_info;
 struct file_info {
     struct stat st;
+    security_context_t con;
     file_info *next;
     char *path;
 };
@@ -54,7 +56,8 @@ struct file_info {
  *
  * @return A pointer to the new file node
  */
-static file_info *create_node(const char *path, struct stat *st)
+static file_info *create_node(const char *path, struct stat *st,
+                security_context_t con)
 {
     int len = strlen(path);
 
@@ -66,6 +69,7 @@ static file_info *create_node(const char *path, struct stat *st)
 
     memset(fi, 0, sizeof(file_info) + len + 1);
     memcpy(&fi->st, st, sizeof(struct stat));
+    fi->con = con;
     fi->next = NULL;
     fi->path = (char *)(fi + 1);
     strncpy(fi->path, path, len);
@@ -88,6 +92,7 @@ static int generate_file_list(const char *path, file_info ** file_list,
     DIR *dir;
     struct dirent *dirent;
     struct stat st;
+    security_context_t con;
     int len;
     char *file_path;
     file_info *node;
@@ -143,7 +148,14 @@ static int generate_file_list(const char *path, file_info ** file_list,
             return ret;
         }
 
-        node = create_node(file_path, &st);
+        ret = lgetfilecon(file_path, &con);
+        if (ret < 0) {
+            LOGE("lgetfilecon failed on %s\n", file_path);
+            closedir(dir);
+            return ret;
+        }
+
+        node = create_node(file_path, &st, con);
         if (dirent->d_type == DT_DIR) {
             node->next = *dir_list;
             *dir_list = node;
@@ -294,6 +306,12 @@ static int create_dirs(file_info ** dir_list, char *src_path, char *dst_path)
             free(path);
             return ret;
         }
+        ret = setfilecon(path, iter->con);
+        if (ret < 0) {
+            LOGE("setfilecon %s fail\n", path);
+            free(path);
+            return ret;
+        }
         ret = chown(path, iter->st.st_uid, iter->st.st_gid);
         if (ret < 0) {
             LOGE("chown %s fail\n", path);
@@ -320,6 +338,13 @@ static int create_dirs(file_info ** dir_list, char *src_path, char *dst_path)
     ret = mkdir(path, iter->st.st_mode);
     if (ret < 0) {
         LOGE("mkdir %s fail", path);
+        free(path);
+        return ret;
+    }
+
+    ret = setfilecon(path, iter->con);
+    if (ret < 0) {
+        LOGE("setfilecon %s fail\n", path);
         free(path);
         return ret;
     }
@@ -376,7 +401,8 @@ static int delete_files(file_info ** file_list)
  *
  * @return 0 for success, negative value in case of an error
  */
-static int copy_file(char *src_path, char *dst_path, struct stat *st)
+static int copy_file(char *src_path, char *dst_path, struct stat *st,
+                security_context_t con)
 {
     char buffer[MAX_PATH_LENGTH], buff[PROPERTY_VALUE_MAX];
     int n = 0, m = 0, ret = -1;
@@ -427,11 +453,18 @@ static int copy_file(char *src_path, char *dst_path, struct stat *st)
     close(fd_src);
     close(fd_dst);
 
+    ret = setfilecon(dst_path, con);
+    if (ret < 0) {
+        LOGE("setfilecon %s fail\n", dst_path);
+        return ret;
+    }
+
     ret = chown(dst_path, st->st_uid, st->st_gid);
     if (ret < 0) {
         LOGE("chown %s fail\n", dst_path);
         return ret;
     }
+
     /* Save access times */
     time.actime = st->st_atime;
     time.modtime = st->st_mtime;
@@ -501,6 +534,13 @@ static int copy_files(file_info ** file_list, char *src_path, char *dst_path)
                 return ret;
             }
 
+            ret = lsetfilecon(path, iter->con);
+            if (ret < 0) {
+                LOGE("lsetfilecon %s fail\n", iter->path);
+                free(linkname);
+                return ret;
+            }
+
             ret = lchown(path, iter->st.st_uid, iter->st.st_gid);
             if (ret < 0) {
                 LOGE("lchown %s fail\n", iter->path);
@@ -512,7 +552,7 @@ static int copy_files(file_info ** file_list, char *src_path, char *dst_path)
             continue;
         }
 
-        ret = copy_file(iter->path, path, &iter->st);
+        ret = copy_file(iter->path, path, &iter->st, iter->con);
         if (ret < 0) {
             LOGE("Copying file form %s to %s failed\n", iter->path,
                  path);
@@ -535,6 +575,7 @@ static void free_list(file_info ** file_list)
     file_info *aux;
 
     while (iter) {
+        freecon(iter->con);
         aux = iter;
         iter = iter->next;
         free(aux);
