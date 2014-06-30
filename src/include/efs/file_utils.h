@@ -29,8 +29,8 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
 int check_space(const char *path);
-int copy_dir_content(char *src_path, char *dest_path);
-int remove_dir_content(char *path);
-int remove_dir(char *path);
+int copy_dir_content(const char *src_path, const char *dest_path);
+int remove_dir_content(const char *path);
+int remove_dir(const char *path);
 int get_dir_size(const char *path, off_t * size);
 #endif /* EFS_FILE_UTILS_H */
