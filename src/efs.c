@@ -126,6 +126,8 @@ static int encrypt_storage(char *storage_path, char *passwd)
         /* Try to fail gracefully */
         remove_dir_content(private_dir_path);
         umount_ecryptfs(private_dir_path);
+        remove(private_dir_path);
+        remove(key_storage_path);
         return ret;
     }
 
