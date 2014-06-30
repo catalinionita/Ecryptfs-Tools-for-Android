@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <utime.h>
@@ -47,6 +48,37 @@ struct file_info {
     file_info *next;
     char *path;
 };
+
+/**
+ * Check whether there is enough space on disk to create storage
+ *
+ * @param path Path to storage
+ *
+ * @return 1 if enough space exists, 0 otherwise
+ */
+int check_space(const char *path)
+{
+    struct statvfs stat;
+    off_t size;
+    int ret;
+
+    ret = get_dir_size(path, &size);
+    if (ret < 0) {
+        LOGE("Failed to compute storage size %s", path);
+        return ret;
+    }
+
+    ret = statvfs(path, &stat);
+    if (ret < 0) {
+        LOGE("Failed to compute free space for storage %s", path);
+        return ret;
+    }
+
+    if ((unsigned)size < stat.f_bsize * stat.f_bfree)
+        return 1;
+
+    return 0;
+}
 
 /**
  * Create a file node to hold informations about a file
@@ -185,7 +217,7 @@ static int generate_file_list(const char *path, file_info ** file_list,
  *
  * @return 0 for success, negative value in case of an error
  */
-int get_dir_size(char *path, off_t * size)
+int get_dir_size(const char *path, off_t * size)
 {
     DIR *dir;
     struct dirent *dirent;
