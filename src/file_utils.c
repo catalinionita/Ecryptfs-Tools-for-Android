@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <utime.h>
@@ -47,6 +48,37 @@ struct file_info {
     file_info *next;
     char *path;
 };
+
+/**
+ * Check whether there is enough space on disk to create storage
+ *
+ * @param path Path to storage
+ *
+ * @return 1 if enough space exists, 0 otherwise
+ */
+int check_space(const char *path)
+{
+    struct statvfs stat;
+    off_t size;
+    int ret;
+
+    ret = get_dir_size(path, &size);
+    if (ret < 0) {
+        LOGE("Failed to compute storage size %s", path);
+        return ret;
+    }
+
+    ret = statvfs(path, &stat);
+    if (ret < 0) {
+        LOGE("Failed to compute free space for storage %s", path);
+        return ret;
+    }
+
+    if ((unsigned)size < stat.f_bsize * stat.f_bfree)
+        return 1;
+
+    return 0;
+}
 
 /**
  * Create a file node to hold informations about a file
@@ -185,7 +217,7 @@ static int generate_file_list(const char *path, file_info ** file_list,
  *
  * @return 0 for success, negative value in case of an error
  */
-int get_dir_size(char *path, off_t * size)
+int get_dir_size(const char *path, off_t * size)
 {
     DIR *dir;
     struct dirent *dirent;
@@ -269,7 +301,7 @@ int get_dir_size(char *path, off_t * size)
  *
  * @return 0 on success, negative value on error
  */
-static int create_dirs(file_info ** dir_list, char *src_path, char *dst_path)
+static int create_dirs(file_info ** dir_list, const char *src_path, const char *dst_path)
 {
     file_info *iter = *dir_list;
     char *path;
@@ -401,7 +433,7 @@ static int delete_files(file_info ** file_list)
  *
  * @return 0 for success, negative value in case of an error
  */
-static int copy_file(char *src_path, char *dst_path, struct stat *st,
+static int copy_file(const char *src_path, const char *dst_path, struct stat *st,
                 security_context_t con)
 {
     char buffer[MAX_PATH_LENGTH], buff[PROPERTY_VALUE_MAX];
@@ -486,7 +518,7 @@ static int copy_file(char *src_path, char *dst_path, struct stat *st,
  *
  * @return 0 on success, negative value if an error occurs
  */
-static int copy_files(file_info ** file_list, char *src_path, char *dst_path)
+static int copy_files(file_info ** file_list, const char *src_path, const char *dst_path)
 {
     file_info *iter = *file_list;
     char path[MAX_PATH_LENGTH + 1], *linkname;
@@ -591,7 +623,7 @@ static void free_list(file_info ** file_list)
  *
  * @return 0 on success, negative value in case of an error
  */
-int copy_dir_content(char *dst_path, char *src_path)
+int copy_dir_content(const char *dst_path, const char *src_path)
 {
     file_info *file_list = 0, *dir_list = 0;
     int ret = -1;
@@ -631,7 +663,7 @@ err:
  *
  * @return 0 on success, negative value in case of an error
  */
-int remove_dir_content(char *path)
+int remove_dir_content(const char *path)
 {
     file_info *file_list = 0, *dir_list = 0;
     int ret = -1;
@@ -672,7 +704,7 @@ err:
  *
  * @return 0 for success, negative value in case of an error
  */
-int remove_dir(char *path)
+int remove_dir(const char *path)
 {
     int ret = -1;
 

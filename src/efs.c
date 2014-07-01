@@ -226,6 +226,12 @@ int EFS_create(char *storage_path, char *passwd)
         return -1;
     }
 
+    ret = check_space(storage_path);
+    if (ret != 1) {
+        LOGE("Error calculating or insufficient space for storage %s", storage_path);
+        return -1;
+    }
+
     ret = encrypt_storage(storage_path, passwd);
     if (ret < 0) {
         LOGE("Error encrypting efs storage %s", storage_path);
