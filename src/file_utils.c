@@ -217,7 +217,7 @@ static int generate_file_list(const char *path, file_info ** file_list,
  *
  * @return 0 for success, negative value in case of an error
  */
-int get_dir_size(const char *path, off_t * size)
+int get_dir_size(const char *path, off64_t * size)
 {
     DIR *dir;
     struct dirent *dirent;
@@ -434,13 +434,13 @@ static int delete_files(file_info ** file_list)
  * @return 0 for success, negative value in case of an error
  */
 static int copy_file(const char *src_path, const char *dst_path, struct stat *st,
-                security_context_t con)
+                security_context_t con, off64_t * done, const off64_t * total)
 {
     char buffer[MAX_PATH_LENGTH], buff[PROPERTY_VALUE_MAX];
     int n = 0, m = 0, ret = -1;
     int fd_src, fd_dst;
     struct utimbuf time;
-    off_t size = 0;
+    double total_d = *total;
 
     fd_src = open(src_path, O_RDONLY);
     if (fd_src < 0) {
@@ -472,14 +472,13 @@ static int copy_file(const char *src_path, const char *dst_path, struct stat *st
             return -1;
         }
 
-        memset(buff, 0, sizeof(buff));
-        property_get("efs.encrypt.progress", buff, "0");
-        size = atoi(buff);
-        size += m;
-        memset(buff, 0, sizeof(buff));
-        snprintf(buff, sizeof(buff), "%d", size);
-        property_set("efs.encrypt.progress", buff);
-
+        *done += m;
+        // check if update is required
+        if ((*done - m) / total_d * 100 != *done / total_d * 100) {
+            memset(buff, 0, sizeof(buff));
+            snprintf(buff, sizeof(buff), "%llu", (off64_t)(*done / total_d * 100));
+            property_set("efs.encrypt.progress", buff);
+        }
     } while (n);
 
     close(fd_src);
@@ -521,14 +520,25 @@ static int copy_file(const char *src_path, const char *dst_path, struct stat *st
 static int copy_files(file_info ** file_list, const char *src_path, const char *dst_path)
 {
     file_info *iter = *file_list;
-    char path[MAX_PATH_LENGTH + 1], *linkname;
+    char path[MAX_PATH_LENGTH + 1], buff[PROPERTY_VALUE_MAX], *linkname;
     int len = 0, ret = -1;
+    off64_t done = 0, total = 0;
 
     if (strlen(src_path) > MAX_PATH_LENGTH
         || strlen(dst_path) > MAX_PATH_LENGTH) {
         LOGE("Invalid arguments\n");
         return ret;
     }
+
+    ret = get_dir_size(src_path, &total);
+    if (ret < 0) {
+        LOGE("Failed to compute storage size %s", src_path);
+        return ret;
+    }
+
+    memset(buff, 0, sizeof(buff));
+    snprintf(buff, sizeof(buff), "%llu", (off64_t)(done / (double)total * 100));
+    property_set("efs.encrypt.progress", buff);
 
     while (iter) {
         len =
@@ -584,7 +594,7 @@ static int copy_files(file_info ** file_list, const char *src_path, const char *
             continue;
         }
 
-        ret = copy_file(iter->path, path, &iter->st, iter->con);
+        ret = copy_file(iter->path, path, &iter->st, iter->con, &done, &total);
         if (ret < 0) {
             LOGE("Copying file form %s to %s failed\n", iter->path,
                  path);
