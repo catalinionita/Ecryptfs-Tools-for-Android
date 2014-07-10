@@ -28,6 +28,9 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
+static const char property_prefix[] = "efs.encrypt.progress_";
+#define SHA_HEAD 10
+
 int check_space(const char *path);
 int copy_dir_content(const char *src_path, const char *dest_path);
 int remove_dir_content(const char *path);
