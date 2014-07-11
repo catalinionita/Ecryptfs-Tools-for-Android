@@ -39,6 +39,7 @@
 #include <efs/efs.h>
 #include <efs/file_utils.h>
 #include <efs/key_chain.h>
+#include <openssl/sha.h>
 #include <cutils/properties.h>
 
 typedef struct file_info file_info;
@@ -433,8 +434,9 @@ static int delete_files(file_info ** file_list)
  *
  * @return 0 for success, negative value in case of an error
  */
-static int copy_file(const char *src_path, const char *dst_path, struct stat *st,
-                security_context_t con, off64_t * done, const off64_t * total)
+static int copy_file(const char * property, const char *src_path, const char *dst_path,
+                struct stat *st, security_context_t con,
+                off64_t * done, const off64_t * total)
 {
     char buffer[MAX_PATH_LENGTH], buff[PROPERTY_VALUE_MAX];
     int n = 0, m = 0, ret = -1;
@@ -477,7 +479,10 @@ static int copy_file(const char *src_path, const char *dst_path, struct stat *st
         if ((*done - m) / total_d * 100 != *done / total_d * 100) {
             memset(buff, 0, sizeof(buff));
             snprintf(buff, sizeof(buff), "%llu", (off64_t)(*done / total_d * 100));
-            property_set("efs.encrypt.progress", buff);
+            ret = property_set(property, buff);
+            if (ret < 0) {
+                LOGE("property_set");
+            }
         }
     } while (n);
 
@@ -521,6 +526,8 @@ static int copy_files(file_info ** file_list, const char *src_path, const char *
 {
     file_info *iter = *file_list;
     char path[MAX_PATH_LENGTH + 1], buff[PROPERTY_VALUE_MAX], *linkname;
+    char property[PROPERTY_KEY_MAX], path_hash_hex[ECRYPTFS_SIG_LEN * 2];
+    unsigned char path_hash[ECRYPTFS_SIG_LEN];
     int len = 0, ret = -1;
     off64_t done = 0, total = 0;
 
@@ -536,9 +543,18 @@ static int copy_files(file_info ** file_list, const char *src_path, const char *
         return ret;
     }
 
+    memset(property, 0, sizeof(property));
+    memcpy(property, property_prefix, strlen(property_prefix));
+    SHA512((unsigned char *)src_path, strlen(src_path), path_hash);
+    convert_to_hex_format(path_hash, path_hash_hex, ECRYPTFS_SIG_LEN);
+    memcpy(property + strlen(property_prefix), path_hash_hex, SHA_HEAD);
+
     memset(buff, 0, sizeof(buff));
     snprintf(buff, sizeof(buff), "%llu", (off64_t)(done / (double)total * 100));
-    property_set("efs.encrypt.progress", buff);
+    ret = property_set(property, buff);
+    if (ret < 0) {
+        LOGE("property_set");
+    }
 
     while (iter) {
         len =
@@ -594,7 +610,7 @@ static int copy_files(file_info ** file_list, const char *src_path, const char *
             continue;
         }
 
-        ret = copy_file(iter->path, path, &iter->st, iter->con, &done, &total);
+        ret = copy_file(property, iter->path, path, &iter->st, iter->con, &done, &total);
         if (ret < 0) {
             LOGE("Copying file form %s to %s failed\n", iter->path,
                  path);
