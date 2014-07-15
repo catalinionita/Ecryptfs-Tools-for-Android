@@ -102,7 +102,13 @@ int EncryptedFileStorageCmd::runCommand(SocketClient *cli, int argc, char **argv
             return 0;
         }
         rc = EFS_get_status(argv[2]);
-    } else if (!strcmp(argv[1], "encrypt_user_data")) {
+    } else if (!strcmp(argv[1], "get_progress")) {
+		if (argc != 3) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: efs get_progress <storage_path>", false);
+            return 0;
+		}
+		rc = EFS_get_progress(argv[2]);
+	} else if (!strcmp(argv[1], "encrypt_user_data")) {
         if (argc != 4) {
             cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: efs encrypt_user_data <userId> <password>", false);
             return 0;

@@ -38,6 +38,7 @@ extern "C" {
         extern int EFS_recover_data_and_remove(char *storage_path,
                                                        char *password);
         extern int EFS_get_status(char *storage_path);
+	extern int EFS_get_progress(char *storage_path);
 
         /* Android encrypt user API */
         extern int android_encrypt_user_data(int userId, char *password);

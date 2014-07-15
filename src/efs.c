@@ -40,6 +40,7 @@
 #include <efs/crypto.h>
 #include <efs/key_store.h>
 #include <efs/mount_utils.h>
+#include <openssl/sha.h>
 
 /**
  * Internal function to set EFS state
@@ -544,4 +545,44 @@ int EFS_recover_data_and_remove(char *storage_path, char *passwd)
 
     LOGI("Secure storage %s restored", storage_path);
     return 0;
+}
+
+/**
+ * Get ecryption progress for Storage
+ *
+ * @param storage_path Path to Storage
+ *
+ * @return encryption progress for given storage, -1 if invalid path
+ */
+int EFS_get_progress(char *storage_path)
+{
+    char buff[PROPERTY_VALUE_MAX], property[PROPERTY_KEY_MAX], path_hash_hex[ECRYPTFS_SIG_LEN * 2 + 1];
+    unsigned char path_hash[ECRYPTFS_SIG_LEN];
+    int ret = -1;
+
+    if (strlen(storage_path) > MAX_PATH_LENGTH) {
+        LOGE("Invalid arguments\n");
+        return ret;
+    }
+
+    ret = sanitize_storage_path(storage_path);
+    if (ret < 0) {
+        LOGE("Invalid storage path");
+        return ret;
+    }
+
+    memset(property, 0, sizeof(property));
+    memcpy(property, property_prefix, strlen(property_prefix));
+    SHA512((unsigned char *)storage_path, strlen(storage_path), path_hash);
+    convert_to_hex_format(path_hash, path_hash_hex, ECRYPTFS_SIG_LEN);
+    memcpy(property + strlen(property_prefix), path_hash_hex, SHA_HEAD);
+
+    memset(buff, 0, sizeof(buff));
+    ret = property_get(property, buff, "-1");
+    if (ret < 0) {
+        LOGE("property_get");
+        return ret;
+    }
+
+    return atoi(buff);
 }
