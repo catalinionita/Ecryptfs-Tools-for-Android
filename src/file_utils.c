@@ -526,7 +526,7 @@ static int copy_files(file_info ** file_list, const char *src_path, const char *
 {
     file_info *iter = *file_list;
     char path[MAX_PATH_LENGTH + 1], buff[PROPERTY_VALUE_MAX], *linkname;
-    char property[PROPERTY_KEY_MAX], path_hash_hex[ECRYPTFS_SIG_LEN * 2];
+    char property[PROPERTY_KEY_MAX], path_hash_hex[ECRYPTFS_SIG_LEN * 2 + 1];
     unsigned char path_hash[ECRYPTFS_SIG_LEN];
     int len = 0, ret = -1;
     off64_t done = 0, total = 0;
