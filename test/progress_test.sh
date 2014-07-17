@@ -19,14 +19,24 @@ function progress_test() {
 	property="$property_prefix$(echo -n $test_path | openssl dgst -sha512 | cut -d " " -f2 | head -c $sha_head)"
 
 	adb shell "setprop $property 0"
-	adb shell "efs-tools storage create $test_path $password" &
+	if [[ $vold -eq 1 ]]
+	then
+		adb shell "vdc efs create $test_path $password &" &> /dev/null
+	else
+		adb shell "efs-tools storage create $test_path $password" &
+	fi
 
 	progress=0
 	new_progress=0
 	total=100
 	while [[ $progress -lt $total ]]
-		do
-		new_progress=$(adb shell getprop $property | tr -d '\r')
+	do
+		if [[ $vold -eq 1 ]]
+		then
+			new_progress=$(adb shell "vdc efs get_progress $test_path" | tr -d '\r' | cut -d ' ' -f3)
+		else
+			new_progress=$(adb shell getprop $property | tr -d '\r')
+		fi
 		if [[ $new_progress -lt $progress ]]
 		then
 			result=0
@@ -35,10 +45,16 @@ function progress_test() {
 		progress=$new_progress
 	done
 
-	adb shell "efs-tools storage remove $test_path"
+	if [[ vold -eq 1 ]]
+	then
+		adb shell "vdc efs remove $test_path" &> /dev/null
+	else
+		adb shell "efs-tools storage remove $test_path"
+	fi
 }
 
 result=1
+vold=0
 progress_test
 
 if [[ $result -eq 1 ]]
@@ -46,5 +62,16 @@ then
 	echo "Progress Test - PASS"
 else
 	echo "Progress Test - FAIL"
+fi
+
+result=1
+vold=1
+progress_test
+
+if [[ $result -eq 1 ]]
+then
+	echo "VOLD Progress Test - PASS"
+else
+	echo "VOLD Progress Test - FAIL"
 fi
 
