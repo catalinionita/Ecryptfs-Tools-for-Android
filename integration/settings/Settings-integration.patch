@@ -1,6 +1,6 @@
-From 6a4ece58738ad25980448012a18b4e54e97613b1 Mon Sep 17 00:00:00 2001
-From: Catalin Ionita <catalin.ionita@intel.com>
-Date: Wed, 4 Dec 2013 15:11:21 +0200
+From 7ac72fd85b2b8946d23d4ffac222dcd95bb09573 Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Mon, 21 Jul 2014 11:47:28 +0300
 Subject: [PATCH] Integrate EFS with settings
 
 ---
@@ -22,11 +22,11 @@ Subject: [PATCH] Integrate EFS with settings
  src/com/android/settings/CryptKeeper.java          |   12 +-
  src/com/android/settings/DecryptUserConfirm.java   |  102 +++
  src/com/android/settings/EncryptUser.java          |  684 ++++++++++++++++++++
- src/com/android/settings/EncryptUserConfirm.java   |  111 ++++
+ src/com/android/settings/EncryptUserConfirm.java   |  136 ++++
  src/com/android/settings/EncryptUserSettings.java  |  223 +++++++
  src/com/android/settings/SecuritySettings.java     |   33 +-
  src/com/android/settings/Settings.java             |    2 +
- 22 files changed, 1974 insertions(+), 3 deletions(-)
+ 22 files changed, 1999 insertions(+), 3 deletions(-)
  create mode 100644 res/layout/decrypt_user_confirm.xml
  create mode 100644 res/layout/decrypt_user_settings.xml
  create mode 100644 res/layout/encrypt_user_blank.xml
@@ -1792,10 +1792,10 @@ index 0000000..9c67d29
 +}
 diff --git a/src/com/android/settings/EncryptUserConfirm.java b/src/com/android/settings/EncryptUserConfirm.java
 new file mode 100644
-index 0000000..110d50e
+index 0000000..c115b3d
 --- /dev/null
 +++ b/src/com/android/settings/EncryptUserConfirm.java
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,136 @@
 +package com.android.settings;
 +
 +import com.android.settings.CryptKeeperConfirm.Blank;
@@ -1812,13 +1812,16 @@ index 0000000..110d50e
 +import android.view.View;
 +import android.view.ViewGroup;
 +import android.widget.Button;
++import android.widget.ProgressBar;
 +import android.app.StatusBarManager;
 +import android.os.ServiceManager;
 +import android.os.storage.IMountService;
 +import android.app.ActivityManager;
 +import android.os.ServiceManager;
-+import android.os.IBinder;
++import android.os.Message;
++import android.os.SystemProperties;
 +import android.os.storage.IMountService;
++import android.os.HandlerThread;
 +import android.app.ActivityManager;
 +import android.content.ComponentName;
 +import android.content.pm.PackageManager;
@@ -1826,14 +1829,33 @@ index 0000000..110d50e
 +
 +public class EncryptUserConfirm extends Fragment{
 +       private static final String TAG = "EncryptUser";
++	   private static final int progress_max = 100;
 +       public static class Blank extends Activity {
-+            private Handler mHandler = new Handler();
++            private Handler mHandler = new Handler() {
++				@Override
++				public void handleMessage(Message msg) {
++					updateProgress();
++				}
++			};
++
++			private void updateProgress() {
++				ProgressBar pb = (ProgressBar) findViewById(R.id.progress_bar);
++				final String property_value = SystemProperties.get("efs.encrypt.progress_99a9a15548");
++				int progress = "".equals(property_value) ? 0 : Integer.parseInt(property_value);
++				
++				pb.setProgress(progress);
++					
++				mHandler.removeMessages(1);
++				mHandler.sendEmptyMessageDelayed(1,250);
++			}
 +
 +            @Override
 +            public void onCreate(Bundle savedInstanceState) {
 +                super.onCreate(savedInstanceState);
-+
-+                setContentView(R.layout.encrypt_user_blank);
++				
++                setContentView(R.layout.encrypt_user_progress);
++				((ProgressBar) findViewById(R.id.progress_bar)).setIndeterminate(false);
++				updateProgress();
 +
 +                if (Utils.isMonkeyRunning()) {
 +                    finish();
@@ -1851,7 +1873,10 @@ index 0000000..110d50e
 +                // Post a delayed message in 700 milliseconds to enable encryption.
 +                // NOTE: The animation on this activity is set for 500 milliseconds
 +                // I am giving it a little extra time to complete.
-+               mHandler.postDelayed(new Runnable() {
++               HandlerThread thread = new HandlerThread("Encrypter");
++			   thread.start();
++			   Handler threadHandler = new Handler(thread.getLooper());
++			   threadHandler.postDelayed(new Runnable() {
 +                    public void run() {
 +                        IBinder service = ServiceManager.getService("mount");
 +                        if (service == null) {
