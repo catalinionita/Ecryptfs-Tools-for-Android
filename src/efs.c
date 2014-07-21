@@ -522,6 +522,9 @@ int EFS_recover_data_and_remove(char *storage_path, char *passwd)
     ret = copy_dir_content(storage_path, recovery_path);
     if (ret < 0) {
         LOGE("Error copy data to storage");
+        /* Le graceful fail */
+        umount_ecryptfs(recovery_path);
+        remove_dir_content(storage_path);
         return ret;
     }
 
