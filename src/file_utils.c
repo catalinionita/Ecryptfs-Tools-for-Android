@@ -60,7 +60,7 @@ struct file_info {
 int check_space(const char *path)
 {
     struct statvfs stat;
-    off_t size;
+    off64_t size = 0;
     int ret;
 
     ret = get_dir_size(path, &size);
@@ -69,6 +69,7 @@ int check_space(const char *path)
         return ret;
     }
 
+    memset(&stat, 0, sizeof(stat));
     ret = statvfs(path, &stat);
     if (ret < 0) {
         LOGE("Failed to compute free space for storage %s", path);

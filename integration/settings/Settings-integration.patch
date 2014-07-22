@@ -1,6 +1,6 @@
-From 6a4ece58738ad25980448012a18b4e54e97613b1 Mon Sep 17 00:00:00 2001
-From: Catalin Ionita <catalin.ionita@intel.com>
-Date: Wed, 4 Dec 2013 15:11:21 +0200
+From 63bc4b141ef42bc4ee5ce7eda6886c7b4265d4c9 Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Mon, 21 Jul 2014 15:12:31 +0300
 Subject: [PATCH] Integrate EFS with settings
 
 ---
@@ -20,13 +20,13 @@ Subject: [PATCH] Integrate EFS with settings
  ...gs_unecrypted_device_encrypted_primary_user.xml |   39 ++
  res/xml/security_settings_unencrypted.xml          |    6 +-
  src/com/android/settings/CryptKeeper.java          |   12 +-
- src/com/android/settings/DecryptUserConfirm.java   |  102 +++
- src/com/android/settings/EncryptUser.java          |  684 ++++++++++++++++++++
- src/com/android/settings/EncryptUserConfirm.java   |  111 ++++
+ src/com/android/settings/DecryptUserConfirm.java   |  102 ++++
+ src/com/android/settings/EncryptUser.java          |  634 ++++++++++++++++++++
+ src/com/android/settings/EncryptUserConfirm.java   |  136 +++++
  src/com/android/settings/EncryptUserSettings.java  |  223 +++++++
  src/com/android/settings/SecuritySettings.java     |   33 +-
  src/com/android/settings/Settings.java             |    2 +
- 22 files changed, 1974 insertions(+), 3 deletions(-)
+ 22 files changed, 1949 insertions(+), 3 deletions(-)
  create mode 100644 res/layout/decrypt_user_confirm.xml
  create mode 100644 res/layout/decrypt_user_settings.xml
  create mode 100644 res/layout/encrypt_user_blank.xml
@@ -963,7 +963,7 @@ index 00213df..837f49c 100644
  
  
 diff --git a/src/com/android/settings/CryptKeeper.java b/src/com/android/settings/CryptKeeper.java
-index 7057f1a..afb508d 100644
+index 7057f1a..db45405 100644
 --- a/src/com/android/settings/CryptKeeper.java
 +++ b/src/com/android/settings/CryptKeeper.java
 @@ -59,6 +59,7 @@ import com.android.internal.statusbar.StatusBarIcon;
@@ -1102,10 +1102,10 @@ index 0000000..8c6a528
 +}
 diff --git a/src/com/android/settings/EncryptUser.java b/src/com/android/settings/EncryptUser.java
 new file mode 100644
-index 0000000..9c67d29
+index 0000000..e7961b0
 --- /dev/null
 +++ b/src/com/android/settings/EncryptUser.java
-@@ -0,0 +1,684 @@
+@@ -0,0 +1,634 @@
 +package com.android.settings;
 +
 +import android.app.Activity;
@@ -1158,8 +1158,6 @@ index 0000000..9c67d29
 +    private static final String TAG = "EncryptUser";
 +    private static final int NOT_ENCRYPTED = 1;
 +    private static final int ENCRYPTION_COMPLETED = 3;
-+    /** Message sent to us to indicate encryption update progress. */
-+    private static final int MESSAGE_UPDATE_PROGRESS = 1;
 +    /** Message sent to us to cool-down (waste user's time between password attempts) */
 +    private static final int MESSAGE_COOLDOWN = 2;
 +    /** Message sent to us to indicate alerting the user that we are waiting for password entry */
@@ -1207,7 +1205,7 @@ index 0000000..9c67d29
 +        @Override
 +        public void onCreate(Bundle savedInstanceState) {
 +            super.onCreate(savedInstanceState);
-+            setContentView(R.layout.crypt_keeper_blank);
++            setContentView(R.layout.encrypt_user_blank);
 +        }
 +        /** Ignore all back events. */
 +        @Override
@@ -1287,10 +1285,6 @@ index 0000000..9c67d29
 +        @Override
 +        public void handleMessage(Message msg) {
 +            switch (msg.what) {
-+            case MESSAGE_UPDATE_PROGRESS:
-+                updateProgress();
-+                break;
-+
 +            case MESSAGE_COOLDOWN:
 +                cooldown();
 +                break;
@@ -1374,12 +1368,8 @@ index 0000000..9c67d29
 +        // }
 +
 +        final String state = SystemProperties.get("crypto.primary_user");
-+        if ("encrypting".equals(state)) {
-+            setContentView(R.layout.crypt_keeper_progress);
-+            encryptionProgressInit();
-+        } else
-+            if (mValidationComplete) {
-+            setContentView(R.layout.crypt_keeper_password_entry);
++        if (mValidationComplete) {
++            setContentView(R.layout.encrypt_user_password_entry);
 +            passwordEntryInit();
 +        } else if (!mValidationRequested) {
 +            // We're supposed to be encrypted, but no validation has been done.
@@ -1392,7 +1382,6 @@ index 0000000..9c67d29
 +    public void onStop() {
 +        super.onStop();
 +        mHandler.removeMessages(MESSAGE_COOLDOWN);
-+        mHandler.removeMessages(MESSAGE_UPDATE_PROGRESS);
 +        mHandler.removeMessages(MESSAGE_NOTIFY);
 +    }
 +
@@ -1481,29 +1470,6 @@ index 0000000..9c67d29
 +        }
 +    }
 +
-+    /**
-+     * Start encrypting the device.
-+     */
-+    private void encryptionProgressInit() {
-+        // Accquire a partial wakelock to prevent the device from sleeping. Note
-+        // we never release this wakelock as we will be restarted after the device
-+        // is encrypted.
-+        Log.d(TAG, "Encryption progress screen initializing.");
-+        if (mWakeLock == null) {
-+            Log.d(TAG, "Acquiring wakelock.");
-+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-+            mWakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, TAG);
-+            mWakeLock.acquire();
-+        }
-+
-+        ((ProgressBar) findViewById(R.id.progress_bar)).setIndeterminate(true);
-+        // Ignore all back presses from now, both hard and soft keys.
-+        mIgnoreBack = true;
-+        // Start the first run of progress manually. This method sets up messages to occur at
-+        // repeated intervals.
-+        updateProgress();
-+    }
-+
 +    private void showFactoryReset() {
 +        // Hide the encryption-bot to make room for the "factory reset" button
 +        findViewById(R.id.encroid).setVisibility(View.GONE);
@@ -1520,30 +1486,14 @@ index 0000000..9c67d29
 +        });
 +
 +        // Alert the user of the failure.
-+        ((TextView) findViewById(R.id.title)).setText(R.string.crypt_keeper_failed_title);
-+        ((TextView) findViewById(R.id.status)).setText(R.string.crypt_keeper_failed_summary);
++        ((TextView) findViewById(R.id.title)).setText(R.string.encrypt_user_failed_title);
++        ((TextView) findViewById(R.id.status)).setText(R.string.encrypt_user_failed_summary);
 +
 +        final View view = findViewById(R.id.bottom_divider);
 +        // TODO(viki): Why would the bottom divider be missing in certain layouts? Investigate.
 +        if (view != null) {
 +            view.setVisibility(View.VISIBLE);
 +        }
-+    }
-+
-+    private void updateProgress() {
-+        final int size = Integer.parseInt(SystemProperties.get("efs.encrypt.size"));
-+        int progress = Integer.parseInt(SystemProperties.get("efs.encrypt.progress"));
-+
-+        progress = progress / size * 100;
-+        final CharSequence status = getText(R.string.crypt_keeper_setup_description);
-+        Log.v(TAG, "Encryption progress: " + progress);
-+        final TextView tv = (TextView) findViewById(R.id.status);
-+        if (tv != null) {
-+            tv.setText(TextUtils.expandTemplate(status, Integer.toString(progress)));
-+        }
-+        // Check the progress every 5 seconds
-+        mHandler.removeMessages(MESSAGE_UPDATE_PROGRESS);
-+        mHandler.sendEmptyMessageDelayed(MESSAGE_UPDATE_PROGRESS, 5000);
 +    }
 +
 +    /** Disable password input for a while to force the user to waste time between retries */
@@ -1556,7 +1506,7 @@ index 0000000..9c67d29
 +            mIgnoreBack = false;
 +            status.setText(R.string.enter_password);
 +        } else {
-+            CharSequence template = getText(R.string.crypt_keeper_cooldown);
++            CharSequence template = getText(R.string.encrypt_user_cooldown);
 +            status.setText(TextUtils.expandTemplate(template, Integer.toString(mCooldown)));
 +
 +            mCooldown--;
@@ -1792,10 +1742,10 @@ index 0000000..9c67d29
 +}
 diff --git a/src/com/android/settings/EncryptUserConfirm.java b/src/com/android/settings/EncryptUserConfirm.java
 new file mode 100644
-index 0000000..110d50e
+index 0000000..c115b3d
 --- /dev/null
 +++ b/src/com/android/settings/EncryptUserConfirm.java
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,136 @@
 +package com.android.settings;
 +
 +import com.android.settings.CryptKeeperConfirm.Blank;
@@ -1812,13 +1762,16 @@ index 0000000..110d50e
 +import android.view.View;
 +import android.view.ViewGroup;
 +import android.widget.Button;
++import android.widget.ProgressBar;
 +import android.app.StatusBarManager;
 +import android.os.ServiceManager;
 +import android.os.storage.IMountService;
 +import android.app.ActivityManager;
 +import android.os.ServiceManager;
-+import android.os.IBinder;
++import android.os.Message;
++import android.os.SystemProperties;
 +import android.os.storage.IMountService;
++import android.os.HandlerThread;
 +import android.app.ActivityManager;
 +import android.content.ComponentName;
 +import android.content.pm.PackageManager;
@@ -1826,14 +1779,33 @@ index 0000000..110d50e
 +
 +public class EncryptUserConfirm extends Fragment{
 +       private static final String TAG = "EncryptUser";
++	   private static final int progress_max = 100;
 +       public static class Blank extends Activity {
-+            private Handler mHandler = new Handler();
++            private Handler mHandler = new Handler() {
++				@Override
++				public void handleMessage(Message msg) {
++					updateProgress();
++				}
++			};
++
++			private void updateProgress() {
++				ProgressBar pb = (ProgressBar) findViewById(R.id.progress_bar);
++				final String property_value = SystemProperties.get("efs.encrypt.progress_99a9a15548");
++				int progress = "".equals(property_value) ? 0 : Integer.parseInt(property_value);
++				
++				pb.setProgress(progress);
++					
++				mHandler.removeMessages(1);
++				mHandler.sendEmptyMessageDelayed(1,250);
++			}
 +
 +            @Override
 +            public void onCreate(Bundle savedInstanceState) {
 +                super.onCreate(savedInstanceState);
-+
-+                setContentView(R.layout.encrypt_user_blank);
++				
++                setContentView(R.layout.encrypt_user_progress);
++				((ProgressBar) findViewById(R.id.progress_bar)).setIndeterminate(false);
++				updateProgress();
 +
 +                if (Utils.isMonkeyRunning()) {
 +                    finish();
@@ -1851,7 +1823,10 @@ index 0000000..110d50e
 +                // Post a delayed message in 700 milliseconds to enable encryption.
 +                // NOTE: The animation on this activity is set for 500 milliseconds
 +                // I am giving it a little extra time to complete.
-+               mHandler.postDelayed(new Runnable() {
++               HandlerThread thread = new HandlerThread("Encrypter");
++			   thread.start();
++			   Handler threadHandler = new Handler(thread.getLooper());
++			   threadHandler.postDelayed(new Runnable() {
 +                    public void run() {
 +                        IBinder service = ServiceManager.getService("mount");
 +                        if (service == null) {
