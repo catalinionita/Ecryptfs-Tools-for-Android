@@ -88,7 +88,7 @@ int add_ecryptfs_key(unsigned char *key, char *sig, unsigned char *salt)
     if (ret == -1) {
         ret = -errno;
         LOGE("Error adding key with sig %s; ret = [%d]\n : %s", sig,
-             errno, strerror(ret));
+             errno, strerror(errno));
         if (ret == -EDQUOT)
             LOGE("Error adding key to keyring - keyring is full\n");
         return ret;

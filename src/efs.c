@@ -117,6 +117,7 @@ static int encrypt_storage(char *storage_path, char *passwd)
                key_storage_path);
     if (ret < 0) {
         LOGE("Error mounting %s", private_dir_path);
+        remove_dir(key_storage_path);
         return ret;
     }
 
@@ -125,10 +126,9 @@ static int encrypt_storage(char *storage_path, char *passwd)
         LOGE("Error copy data to  private storage %s",
              private_dir_path);
         /* Try to fail gracefully */
-        remove_dir_content(private_dir_path);
         umount_ecryptfs(private_dir_path);
-        remove(private_dir_path);
-        remove(key_storage_path);
+        remove_dir(private_dir_path);
+        remove_dir(key_storage_path);
         return ret;
     }
 
@@ -516,6 +516,7 @@ int EFS_recover_data_and_remove(char *storage_path, char *passwd)
     if (ret < 0) {
         LOGE("Error mounting private storage %s to %s",
              private_dir_path, recovery_path);
+        remove_dir(recovery_path);
         return ret;
     }
 
