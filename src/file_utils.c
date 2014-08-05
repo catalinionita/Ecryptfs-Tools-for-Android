@@ -620,6 +620,11 @@ static int copy_files(file_info ** file_list, const char *src_path, const char *
 
         iter = iter->next;
     }
+
+    ret = property_set(property, "100");
+    if (ret < 0) {
+        LOGE("property_set");
+    }
     return 0;
 }
 

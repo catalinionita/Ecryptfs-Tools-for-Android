@@ -1,6 +1,6 @@
-From 63bc4b141ef42bc4ee5ce7eda6886c7b4265d4c9 Mon Sep 17 00:00:00 2001
+From 62864cbff7fbce21f92f6dd3be1f0acc3662bee0 Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
-Date: Mon, 21 Jul 2014 15:12:31 +0300
+Date: Fri, 1 Aug 2014 15:17:13 +0300
 Subject: [PATCH] Integrate EFS with settings
 
 ---
@@ -22,11 +22,11 @@ Subject: [PATCH] Integrate EFS with settings
  src/com/android/settings/CryptKeeper.java          |   12 +-
  src/com/android/settings/DecryptUserConfirm.java   |  102 ++++
  src/com/android/settings/EncryptUser.java          |  634 ++++++++++++++++++++
- src/com/android/settings/EncryptUserConfirm.java   |  136 +++++
+ src/com/android/settings/EncryptUserConfirm.java   |  157 +++++
  src/com/android/settings/EncryptUserSettings.java  |  223 +++++++
- src/com/android/settings/SecuritySettings.java     |   33 +-
+ src/com/android/settings/SecuritySettings.java     |   37 +-
  src/com/android/settings/Settings.java             |    2 +
- 22 files changed, 1949 insertions(+), 3 deletions(-)
+ 22 files changed, 1971 insertions(+), 6 deletions(-)
  create mode 100644 res/layout/decrypt_user_confirm.xml
  create mode 100644 res/layout/decrypt_user_settings.xml
  create mode 100644 res/layout/encrypt_user_blank.xml
@@ -983,7 +983,7 @@ index 7057f1a..db45405 100644
 +
 +        if (("encrypted".equals(primaryUserEncrypted))) {
 +            Intent intent = new Intent(this, EncryptUser.class);
-+            startActivity(intent);
++			startActivity(intent);
 +            finish();
 +            return;
 +        }
@@ -1742,10 +1742,10 @@ index 0000000..e7961b0
 +}
 diff --git a/src/com/android/settings/EncryptUserConfirm.java b/src/com/android/settings/EncryptUserConfirm.java
 new file mode 100644
-index 0000000..c115b3d
+index 0000000..137b692
 --- /dev/null
 +++ b/src/com/android/settings/EncryptUserConfirm.java
-@@ -0,0 +1,136 @@
+@@ -0,0 +1,157 @@
 +package com.android.settings;
 +
 +import com.android.settings.CryptKeeperConfirm.Blank;
@@ -1775,12 +1775,17 @@ index 0000000..c115b3d
 +import android.app.ActivityManager;
 +import android.content.ComponentName;
 +import android.content.pm.PackageManager;
++import java.security.NoSuchAlgorithmException;
++import java.security.MessageDigest;
 +import com.android.settings.CryptKeeper;
 +
 +public class EncryptUserConfirm extends Fragment{
-+       private static final String TAG = "EncryptUser";
-+	   private static final int progress_max = 100;
-+       public static class Blank extends Activity {
++        private static final String TAG = "EncryptUser";
++        private static final int progress_max = 100;
++        private static final int shaLength = 10;
++        private static final String propertyPrefix = "efs.encrypt.progress_";
++        private static final String userPath = "/data/user/";
++        public static class Blank extends Activity {
 +            private Handler mHandler = new Handler() {
 +				@Override
 +				public void handleMessage(Message msg) {
@@ -1788,16 +1793,32 @@ index 0000000..c115b3d
 +				}
 +			};
 +
-+			private void updateProgress() {
-+				ProgressBar pb = (ProgressBar) findViewById(R.id.progress_bar);
-+				final String property_value = SystemProperties.get("efs.encrypt.progress_99a9a15548");
-+				int progress = "".equals(property_value) ? 0 : Integer.parseInt(property_value);
-+				
-+				pb.setProgress(progress);
-+					
-+				mHandler.removeMessages(1);
-+				mHandler.sendEmptyMessageDelayed(1,250);
-+			}
++            private String getPropertyName() throws NoSuchAlgorithmException {
++                MessageDigest sha = MessageDigest.getInstance("SHA-512");
++                final int currentUserId = ActivityManager.getCurrentUser();
++                final String currentUserPath = new StringBuilder(userPath).append(currentUserId).toString();
++                byte[] digest = sha.digest(currentUserPath.getBytes());
++                StringBuffer hexString = new StringBuffer();
++                for (int i = 0; i < shaLength / 2; ++i) {
++	                  hexString.append(Integer.toHexString(0xFF & digest[i]));
++                }
++                return new StringBuilder(propertyPrefix).append(hexString).toString();
++            }
++
++            private void updateProgress() {
++                ProgressBar pb = (ProgressBar) findViewById(R.id.progress_bar);
++                String property_value = new String();
++                try {
++	                property_value = SystemProperties.get(getPropertyName());
++                } catch (Exception e) {
++	                return;
++                }
++                int progress = "".equals(property_value) ? 0 : Integer.parseInt(property_value);
++                pb.setProgress(progress);
++
++                mHandler.removeMessages(1);
++                mHandler.sendEmptyMessageDelayed(1,250);
++            }
 +
 +            @Override
 +            public void onCreate(Bundle savedInstanceState) {
@@ -2112,7 +2133,7 @@ index 0000000..7a7adf1
 +
 +}
 diff --git a/src/com/android/settings/SecuritySettings.java b/src/com/android/settings/SecuritySettings.java
-index e002264..986aa41 100644
+index e002264..8f7049a 100644
 --- a/src/com/android/settings/SecuritySettings.java
 +++ b/src/com/android/settings/SecuritySettings.java
 @@ -48,6 +48,12 @@ import com.android.internal.widget.LockPatternUtils;
@@ -2154,7 +2175,16 @@ index e002264..986aa41 100644
      public SecuritySettings() {
          super(null /* Don't ask for restrictions pin on creation. */);
      }
-@@ -191,7 +216,13 @@ public class SecuritySettings extends RestrictedSettingsFragment
+@@ -183,17 +208,21 @@ public class SecuritySettings extends RestrictedSettingsFragment
+             }
+         }
+ 
+-        if (mIsPrimary) {
+-            switch (mDPM.getStorageEncryptionStatus()) {
++        switch (mDPM.getStorageEncryptionStatus()) {
+             case DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE:
+                 // The device is currently encrypted.
+                 addPreferencesFromResource(R.xml.security_settings_encrypted);
                  break;
              case DevicePolicyManager.ENCRYPTION_STATUS_INACTIVE:
                  // This device supports encryption but isn't encrypted.
@@ -2167,8 +2197,10 @@ index e002264..986aa41 100644
 +                    addPreferencesFromResource(R.xml.security_settings_unencrypted);
 +                }
                  break;
-             }
+-            }
          }
+ 
+         // lock after preference
 diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
 index e93fa18..9ff4c2c 100644
 --- a/src/com/android/settings/Settings.java
