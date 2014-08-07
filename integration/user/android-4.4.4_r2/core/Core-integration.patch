@@ -1,0 +1,51 @@
+From 890a2c10a568a14d90f1aa4b20ffa40ef314a1fc Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Wed, 6 Aug 2014 14:08:58 +0300
+Subject: [PATCH] Add support to boot encrypted device
+
+---
+ init/Android.mk |    4 ++++
+ init/builtins.c |   13 +++++++++----
+ 2 files changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/init/Android.mk b/init/Android.mk
+index abfc68a..e333e45 100644
+--- a/init/Android.mk
++++ b/init/Android.mk
+@@ -43,6 +43,10 @@ LOCAL_STATIC_LIBRARIES := \
+ 	libmincrypt \
+ 	libext4_utils_static
+ 
++# EFS support for starting up an encrypted device
++LOCAL_C_INCLUDES += external/efs-tools/src/include
++LOCAL_STATIC_LIBRARIES += libefs_init
++
+ include $(BUILD_EXECUTABLE)
+ 
+ # Make a symlink from /sbin/ueventd and /sbin/watchdogd to /init
+diff --git a/init/builtins.c b/init/builtins.c
+index e8c8f91..ba26555 100644
+--- a/init/builtins.c
++++ b/init/builtins.c
+@@ -48,6 +48,7 @@
+ #include "log.h"
+ 
+ #include <private/android_filesystem_config.h>
++#include <efs/init.h>
+ 
+ void add_environment(const char *name, const char *value);
+
+@@ -510,6 +511,10 @@ int do_mount_all(int nargs, char **args)
+         /* If fs_mgr determined this is an unencrypted device, then trigger
+          * that action.
+          */
++        /* Check if device is encrypted using file system encryption */
++        if (android_check_primary_user_encrypted() == 1) {
++            mount("tmpfs", "/data", "tmpfs", MS_NOATIME | MS_NOSUID | MS_NODEV, "size=256m,mode=0771,uid=1000,gid=1000");
++        }
+         action_for_each_trigger("nonencrypted", action_add_queue_tail);
+     }
+
+-- 
+1.7.9.5
+
