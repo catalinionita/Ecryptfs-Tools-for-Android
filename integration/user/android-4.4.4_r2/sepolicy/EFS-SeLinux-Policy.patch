@@ -1,0 +1,147 @@
+From 9a43d7b892d6f6431896d9841955cc62ceffc913 Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Thu, 7 Aug 2014 10:19:57 +0300
+Subject: [PATCH] EFS integration
+
+---
+ file.te           |    3 +++
+ fs_use            |    2 ++
+ installd.te       |    5 +++++
+ property_contexts |    1 +
+ te_macros         |   11 +++++++++++
+ vold.te           |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 66 insertions(+)
+
+diff --git a/file.te b/file.te
+index aefa9a6..35e53d6 100644
+--- a/file.te
++++ b/file.te
+@@ -20,6 +20,7 @@ type mqueue, fs_type;
+ type sdcard_internal, sdcard_type, fs_type, mlstrustedobject;
+ type sdcard_external, sdcard_type, fs_type, mlstrustedobject;
+ type debugfs, fs_type, mlstrustedobject;
++type ecryptfs, fs_type;
+ 
+ # File types
+ type unlabeled, file_type;
+@@ -112,3 +113,5 @@ allow sysfs_type sysfs:filesystem associate;
+ allow file_type labeledfs:filesystem associate;
+ allow file_type tmpfs:filesystem associate;
+ allow dev_type tmpfs:filesystem associate;
++allow file_type ecryptfs:filesystem associate;
++allow dev_type ecryptfs:filesystem associate;
+diff --git a/fs_use b/fs_use
+index 6516046..0b22131 100644
+--- a/fs_use
++++ b/fs_use
+@@ -16,6 +16,8 @@ fs_use_task sockfs u:object_r:sockfs:s0;
+ fs_use_trans devpts u:object_r:devpts:s0;
+ fs_use_trans tmpfs u:object_r:tmpfs:s0;
+ fs_use_trans devtmpfs u:object_r:device:s0;
++fs_use_trans ecryptfs u:object_r:ecryptfs:s0;
++fs_use_trans devecryptfs u:object_r:device:s0;
+ fs_use_trans shm u:object_r:shm:s0;
+ fs_use_trans mqueue u:object_r:mqueue:s0;
+ 
+diff --git a/installd.te b/installd.te
+index 7c72158..e405339 100644
+--- a/installd.te
++++ b/installd.te
+@@ -31,3 +31,8 @@ allow installd bluetooth_data_file:lnk_file { create setattr };
+ allow installd nfc_data_file:lnk_file { create setattr };
+ allow installd radio_data_file:lnk_file { create setattr };
+ allow installd shell_data_file:lnk_file { create setattr };
++
++#Allow installd to work with an ecryptfs mount point
++allow installd ecryptfs:dir { setattr create rmdir rw_dir_perms };
++allow installd ecryptfs:file { setattr create rw_file_perms };
++allow installd ecryptfs:lnk_file { create setattr getattr };
+diff --git a/property_contexts b/property_contexts
+index 6c47c9f..45370e5 100644
+--- a/property_contexts
++++ b/property_contexts
+@@ -49,6 +49,7 @@ selinux.                u:object_r:security_prop:s0
+ # data partition encryption properties
+ vold.                   u:object_r:vold_prop:s0
+ crypto.                 u:object_r:vold_prop:s0
++efs.                    u:object_r:vold_prop:s0
+ 
+ # ctl properties
+ ctl.dumpstate           u:object_r:ctl_dumpstate_prop:s0
+diff --git a/te_macros b/te_macros
+index 310612c..cfad9a0 100644
+--- a/te_macros
++++ b/te_macros
+@@ -109,6 +109,17 @@ tmpfs_domain($1)
+ ')
+ 
+ #####################################
++# ecryptfs_domain(domain)
++# Define and allow access to a unique type for
++# this domain when creating ecryptfs
++define(`ecryptfs_domain', `
++type $1_ecryptfs, file_type;
++type_transition $1 ecryptfs:file $1_ecryptfs;
++# Map with PROT_EXEC.
++allow $1 $1_ecryptfs:file { read execute execmod };
++')
++
++#####################################
+ # relabelto_domain(domain)
+ # Allows this domain to use the relabelto permission
+ define(`relabelto_domain', `
+diff --git a/vold.te b/vold.te
+index 5c83828..2c20644 100644
+--- a/vold.te
++++ b/vold.te
+@@ -70,3 +70,47 @@ allow vold asec_image_file:dir rw_dir_perms;
+ security_access_policy(vold)
+ allow vold asec_apk_file:dir { rw_dir_perms setattr };
+ allow vold asec_apk_file:file { r_file_perms setattr };
++
++#
++# Rules to support encryption of primary user using EFS
++#
++# Let vold store the ecryptfs headers in /data/misc/keystore/
++allow vold keystore_data_file:dir { w_dir_perms };
++allow vold keystore_data_file:file { create_file_perms rw_file_perms };
++# Let vold mount ecryptfs file system
++allow vold ecryptfs:filesystem { mount remount unmount };
++# Let vold use the kernel keyring for ecryptfs
++allow vold self:key { write search };
++# Let vold set ecryptfs mountpoint attr
++# Allow vold to read files, dirs and links for encryption
++allow vold platform_app_data_file:dir { rmdir remove_name write read getattr open search };
++allow vold platform_app_data_file:file { getattr r_file_perms unlink };
++allow vold shell_data_file:dir { getattr r_dir_perms write remove_name rmdir};
++allow vold shell_data_file:file { r_file_perms };
++allow vold nfc_data_file:dir { r_dir_perms write remove_name rmdir};
++allow vold nfc_data_file:file { r_file_perms unlink };
++allow vold system_data_file:dir { setattr rw_dir_perms rmdir };
++allow vold system_data_file:file rw_file_perms;
++allow vold system_data_file:lnk_file { setattr getattr create unlink};
++allow vold download_file:dir { getattr r_dir_perms rmdir };
++allow vold download_file:file { r_file_perms };
++allow vold radio_data_file:dir { r_dir_perms write remove_name rmdir};
++allow vold radio_data_file:file { r_file_perms unlink };
++allow vold bluetooth_data_file:dir { rw_dir_perms remove_name rmdir};
++allow vold bluetooth_data_file:file { r_file_perms };
++allow vold ecryptfs:dir { setattr create rmdir rw_dir_perms };
++allow vold ecryptfs:file { setattr create rw_file_perms };
++allow vold ecryptfs:lnk_file { create setattr getattr};
++allow vold proc:file write;
++allow vold self:capability sys_boot;
++allow vold init_tmpfs:file { open read };
++
++# Required for decryption
++allow vold unlabeled:dir mounton;
++allow vold platform_app_data_file:dir write;
++allow vold shell_data_file:dir write;
++allow vold nfc_data_file:dir write;
++allow vold download_file:dir write;
++allow vold radio_data_file:dir write;
++allow vold bluetooth_data_file:dir write;
++allow vold ecryptfs:lnk_file read;
+-- 
+1.7.9.5
+
