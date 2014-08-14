@@ -212,8 +212,13 @@ static int android_unlock_primary_user(char *password)
     /* Setting vold.decrypt will stop class main */
     property_set("vold.decrypt", "trigger_reset_main");
     sleep(2);
-    /* Force unmount of the tmpfs */
+    /* Force unmount of the tmpfs
+    Despite using MNT_FORCE with umount, partition
+    could not be unmounted on some systems.
+    Therefore, we kill any processess still working there */
+    killProcessesWithOpenFiles("/data", 2);
     umount("/data", MNT_FORCE);
+    sleep(2);
 
     /* Unlock /data/data and /data/media/0 */
     memset(storage_path, 0, sizeof(storage_path));
