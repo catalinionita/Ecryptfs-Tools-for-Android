@@ -29,7 +29,7 @@
 extern "C" {
 #endif
         /* EFS Storage API */
-        extern int EFS_create(char *storage_path, char *passwd);
+        extern int EFS_create(char *storage_path, int user, char *passwd);
         extern int EFS_unlock(char *storage_path, char *passwd);
         extern int EFS_lock(char *storage_path);
         extern int EFS_change_password(char *path, char *old_passwd,

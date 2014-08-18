@@ -120,14 +120,14 @@ static int android_encrypt_primary_data(char *password)
     property_set("efs.encrypt.size", buf);
 
     /* Create secure storages for /data/data and /data/media/0 */
-    ret = EFS_create(data_path, password);
+    ret = EFS_create(data_path, PRIMARY_USER, password);
     if (ret < 0) {
         LOGE("Unable to create efs storage %s", data_path);
         release_wake_lock(lockid);
         return ret;
     }
 
-    ret = EFS_create(media_path, password);
+    ret = EFS_create(media_path, PRIMARY_USER, password);
     if (ret < 0) {
         LOGE("Unable to create efs storage %s", media_path);
         release_wake_lock(lockid);
@@ -165,7 +165,7 @@ int android_encrypt_user_data(int user, char *password)
 
     memset(path, 0, sizeof(path));
     sprintf(path, "%s%d", ANDROID_USER_DATA_PATH, user);
-    ret = EFS_create(path, password);
+    ret = EFS_create(path, user, password);
     if (ret < 0) {
         LOGE("Unable to create efs storage %s", path);
         return ret;
@@ -173,7 +173,7 @@ int android_encrypt_user_data(int user, char *password)
 
     memset(path, 0, sizeof(path));
     sprintf(path, "%s%d", ANDROID_VIRTUAL_SDCARD_PATH, user);
-    ret = EFS_create(path, password);
+    ret = EFS_create(path, user, password);
     if (ret < 0) {
         LOGE("Unable to create efs storage %s", path);
         return ret;

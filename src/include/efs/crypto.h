@@ -30,7 +30,7 @@ int encrypt_key(unsigned char *plain_text_key,
 int decrypt_key(unsigned char *encrypted_key,
                        unsigned char *plain_text_key,
                        unsigned char *decryption_key, unsigned char *IV);
-int generate_crypto_header(struct crypto_header *header);
+int generate_crypto_header(struct crypto_header *header, int user);
 int encrypt_crypto_header(struct crypto_header *header,
                                  unsigned char *encryption_key,
                                  unsigned char *IV);
@@ -39,7 +39,7 @@ int decrypt_crypto_header(struct crypto_header *header,
                                  unsigned char *IV);
 int write_crypto_header(struct crypto_header *header, char *path);
 int read_crypto_header(struct crypto_header *header, char *path);
-int generate_crypt_info(char *storage_path, char *passwd);
+int generate_crypt_info(char *storage_path, int user, char *passwd);
 int check_passwd(struct crypto_header *header, char *passwd);
 int change_passwd(char *storage_path, char *old_passwd, char *new_passwd);
 
