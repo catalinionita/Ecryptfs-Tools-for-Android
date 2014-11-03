@@ -1,32 +1,33 @@
-From 8d7eca720f35b3a6f811bff8baf5d3bc30dc825a Mon Sep 17 00:00:00 2001
+From d320d9103132b6d27321f6fa345a6c3320408def Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
-Date: Thu, 7 Aug 2014 10:25:10 +0300
-Subject: [PATCH] Integrate EFS with settings
+Date: Mon, 3 Nov 2014 11:17:06 +0200
+Subject: [PATCH] Boot into single user
 
 ---
- AndroidManifest.xml                                |   27 +
- res/layout/decrypt_user_confirm.xml                |   49 ++
- res/layout/decrypt_user_settings.xml               |   78 +++
- res/layout/encrypt_user_blank.xml                  |   33 +
- res/layout/encrypt_user_confirm.xml                |   49 ++
- res/layout/encrypt_user_password_entry.xml         |   49 ++
- res/layout/encrypt_user_password_field.xml         |   44 ++
- res/layout/encrypt_user_progress.xml               |   80 +++
- res/layout/encrypt_user_settings.xml               |   78 +++
- res/layout/encrypt_user_status.xml                 |   40 ++
- res/values/strings.xml                             |  126 ++++
- res/values/styles.xml                              |    4 +
- res/xml/security_settings_encrypted_misc.xml       |  108 ++++
- ...gs_unecrypted_device_encrypted_primary_user.xml |   39 ++
- res/xml/security_settings_unencrypted.xml          |    6 +-
- src/com/android/settings/CryptKeeper.java          |   12 +-
- src/com/android/settings/DecryptUserConfirm.java   |  102 ++++
- src/com/android/settings/EncryptUser.java          |  634 ++++++++++++++++++++
- src/com/android/settings/EncryptUserConfirm.java   |  157 +++++
- src/com/android/settings/EncryptUserSettings.java  |  223 +++++++
- src/com/android/settings/SecuritySettings.java     |   37 +-
- src/com/android/settings/Settings.java             |    2 +
- 22 files changed, 1971 insertions(+), 6 deletions(-)
+ AndroidManifest.xml                                |  27 +
+ res/layout/decrypt_user_confirm.xml                |  49 ++
+ res/layout/decrypt_user_settings.xml               |  78 +++
+ res/layout/encrypt_user_blank.xml                  |  33 +
+ res/layout/encrypt_user_confirm.xml                |  49 ++
+ res/layout/encrypt_user_password_entry.xml         |  49 ++
+ res/layout/encrypt_user_password_field.xml         |  44 ++
+ res/layout/encrypt_user_progress.xml               |  80 +++
+ res/layout/encrypt_user_select.xml                 |  54 ++
+ res/layout/encrypt_user_settings.xml               |  78 +++
+ res/layout/encrypt_user_status.xml                 |  40 ++
+ res/values/strings.xml                             | 128 ++++
+ res/values/styles.xml                              |   4 +
+ res/xml/security_settings_encrypted_misc.xml       | 108 +++
+ ...gs_unecrypted_device_encrypted_primary_user.xml |  39 ++
+ res/xml/security_settings_unencrypted.xml          |   6 +-
+ src/com/android/settings/CryptKeeper.java          |  12 +-
+ src/com/android/settings/DecryptUserConfirm.java   | 102 +++
+ src/com/android/settings/EncryptUser.java          | 739 +++++++++++++++++++++
+ src/com/android/settings/EncryptUserConfirm.java   | 157 +++++
+ src/com/android/settings/EncryptUserSettings.java  | 223 +++++++
+ src/com/android/settings/SecuritySettings.java     |  37 +-
+ src/com/android/settings/Settings.java             |   2 +
+ 23 files changed, 2132 insertions(+), 6 deletions(-)
  create mode 100644 res/layout/decrypt_user_confirm.xml
  create mode 100644 res/layout/decrypt_user_settings.xml
  create mode 100644 res/layout/encrypt_user_blank.xml
@@ -34,6 +35,7 @@ Subject: [PATCH] Integrate EFS with settings
  create mode 100644 res/layout/encrypt_user_password_entry.xml
  create mode 100644 res/layout/encrypt_user_password_field.xml
  create mode 100644 res/layout/encrypt_user_progress.xml
+ create mode 100644 res/layout/encrypt_user_select.xml
  create mode 100644 res/layout/encrypt_user_settings.xml
  create mode 100644 res/layout/encrypt_user_status.xml
  create mode 100644 res/xml/security_settings_encrypted_misc.xml
@@ -506,6 +508,66 @@ index 0000000..6b8e65f
 +    />
 +
 +</LinearLayout>
+diff --git a/res/layout/encrypt_user_select.xml b/res/layout/encrypt_user_select.xml
+new file mode 100644
+index 0000000..f228ca2
+--- /dev/null
++++ b/res/layout/encrypt_user_select.xml
+@@ -0,0 +1,54 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2011 The Android Open Source Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++     http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++  -->
++
++<LinearLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:orientation="vertical"
++>
++    <ListView
++        android:id="@+id/list"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content">
++    </ListView>
++
++    <TextView
++        android:id="@+id/username"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content">
++    </TextView>
++ 
++    <TextView
++        android:id="@+id/userid"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content">
++    </TextView>
++    
++    <TextView
++        android:id="@+id/encrypted"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content">
++    </TextView>
++
++    <Button
++        android:id="@+id/button"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:text="@string/encrypt_user_select">
++    </Button>
++
++</LinearLayout>
 diff --git a/res/layout/encrypt_user_settings.xml b/res/layout/encrypt_user_settings.xml
 new file mode 100644
 index 0000000..95ea30c
@@ -637,10 +699,10 @@ index 0000000..c7264be
 +        />
 +</LinearLayout>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index 22eb3e8..3d23411 100644
+index 22eb3e8..25fee29 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
-@@ -4904,4 +4904,130 @@
+@@ -4904,4 +4904,132 @@
  
      <!-- Text to display in regulatory info screen (from device overlay). -->
      <string name="regulatory_info_text"></string>
@@ -764,6 +826,8 @@ index 22eb3e8..3d23411 100644
 +      When you set up your phone after the reset, you\'ll have an opportunity
 +      to restore any data that was backed up to your Google Account.
 +    </string>
++
++    <string name="encrypt_user_select">Select</string>
 +
 +    <!-- Image button description to switch input method -->
 +    <string name="encrypt_user_switch_input_method">Switch input method</string>
@@ -1102,10 +1166,10 @@ index 0000000..8c6a528
 +}
 diff --git a/src/com/android/settings/EncryptUser.java b/src/com/android/settings/EncryptUser.java
 new file mode 100644
-index 0000000..e7961b0
+index 0000000..d92d18a
 --- /dev/null
 +++ b/src/com/android/settings/EncryptUser.java
-@@ -0,0 +1,634 @@
+@@ -0,0 +1,739 @@
 +package com.android.settings;
 +
 +import android.app.Activity;
@@ -1123,6 +1187,7 @@ index 0000000..e7961b0
 +import android.os.PowerManager;
 +import android.os.RemoteException;
 +import android.os.ServiceManager;
++import android.os.SystemClock;
 +import android.os.SystemProperties;
 +import android.os.UserHandle;
 +import android.os.storage.IMountService;
@@ -1142,15 +1207,20 @@ index 0000000..e7961b0
 +import android.view.inputmethod.InputMethodInfo;
 +import android.view.inputmethod.InputMethodManager;
 +import android.view.inputmethod.InputMethodSubtype;
++import android.widget.AdapterView;
++import android.widget.AdapterView.OnItemClickListener;
++import android.widget.ArrayAdapter;
 +import android.widget.Button;
 +import android.widget.EditText;
++import android.widget.ListView;
 +import android.widget.ProgressBar;
 +import android.widget.TextView;
 +import com.android.internal.telephony.ITelephony;
 +import com.android.internal.telephony.Phone;
 +import com.android.internal.telephony.PhoneConstants;
++import java.util.HashMap;
 +import java.util.List;
-+
++import java.util.Set;
 +
 +public class EncryptUser extends Activity implements TextView.OnEditorActionListener,
 +OnKeyListener, OnTouchListener, TextWatcher {
@@ -1187,6 +1257,9 @@ index 0000000..e7961b0
 +    private int mNotificationCountdown = 0;
 +    private int failedAttempts = 0;
 +
++    private boolean selectedUserEncrypted;
++    private int selectedUser;
++
 +    /**
 +     * Used to propagate state through configuration changes (e.g. screen rotation)
 +     */
@@ -1219,7 +1292,7 @@ index 0000000..e7961b0
 +        protected Integer doInBackground(String... params) {
 +            final IMountService service = getMountService();
 +            try {
-+                return service.unlockUserData(0, params[0]);
++                return service.unlockUserData(1, selectedUser, params[0]);
 +            } catch (Exception e) {
 +                Log.e(TAG, "Error while decrypting...", e);
 +                return -1;
@@ -1369,8 +1442,10 @@ index 0000000..e7961b0
 +
 +        final String state = SystemProperties.get("crypto.primary_user");
 +        if (mValidationComplete) {
-+            setContentView(R.layout.encrypt_user_password_entry);
-+            passwordEntryInit();
++            //setContentView(R.layout.encrypt_user_password_entry);
++            setContentView(R.layout.encrypt_user_select);
++            //passwordEntryInit();
++            UserSelect();
 +        } else if (!mValidationRequested) {
 +            // We're supposed to be encrypted, but no validation has been done.
 +            new ValidationTask().execute((Void[]) null);
@@ -1513,6 +1588,100 @@ index 0000000..e7961b0
 +            mHandler.removeMessages(MESSAGE_COOLDOWN);
 +            mHandler.sendEmptyMessageDelayed(MESSAGE_COOLDOWN, 1000); // Tick every second
 +        }
++    }
++
++    private static class UserInfo {
++        public boolean encrypted;
++        public int userId;
++
++        public UserInfo(boolean e, int u) {
++            encrypted = e;
++            userId = u;
++        }
++    }
++
++    private static class UserList {
++        private static HashMap<String, UserInfo> userList;
++
++        public UserList() {
++            userList = new HashMap<String, UserInfo>();
++
++            for (String s : SystemProperties.get("efs.encrypted_list").split(" ")) {
++                if (s.contains(",")) {
++                    String info[] = s.split(",");
++                    userList.put(info[0], new UserInfo(true, Integer.parseInt(info[1])));
++                }
++            }
++
++            for (String s : SystemProperties.get("efs.unencrypted_list").split(" ")) {
++                if (s.contains(",")) {
++                    String info[] = s.split(",");
++                    userList.put(info[0], new UserInfo(false, Integer.parseInt(info[1])));
++                }
++            }
++        }
++
++        public static String[] GetUserList() {
++            return userList.keySet().toArray(new String[userList.size()]);
++        }
++
++        public static int getUserId(String userName) {
++            return userList.get(userName).userId;
++        }
++
++        public static boolean isUserEncrypted(String userName) {
++            return userList.get(userName).encrypted;
++        }
++    }
++
++    private void UserSelect() {
++        final Button button = (Button) findViewById(R.id.button);
++        final ListView listView = (ListView) findViewById(R.id.list);
++        final UserList userList = new UserList();
++        String values[] = userList.GetUserList();
++
++        ArrayAdapter<String> adapter = new ArrayAdapter<String> (this,
++            android.R.layout.simple_list_item_1, android.R.id.text1, values);
++
++        listView.setAdapter(adapter);
++
++        listView.setOnItemClickListener(new OnItemClickListener() {
++
++            @Override
++            public void onItemClick(AdapterView<?> parent, View view,
++                int position, long id) {
++
++                String userName = (String) listView.getItemAtPosition(position);
++                int userId = userList.getUserId(userName);
++
++                ((TextView) findViewById(R.id.username)).setText(userName);
++                ((TextView) findViewById(R.id.userid)).setText(String.valueOf(userId));
++                ((TextView) findViewById(R.id.encrypted)).setText(
++                    userList.isUserEncrypted(userName) ? "Encrypted" : "Not encrypted");
++
++                selectedUser = userId;
++                selectedUserEncrypted = userList.isUserEncrypted(userName);
++            }
++        });
++
++        button.setOnClickListener(new OnClickListener() {
++
++            @Override
++            public void onClick(View view) {
++                if (selectedUserEncrypted) {
++                    setContentView(R.layout.encrypt_user_password_entry);
++                    passwordEntryInit();
++                } else {
++                    final IMountService service = getMountService();
++                    try {
++                        service.restartFramework(selectedUser);
++                    }
++                    catch (Exception e) {
++                        Log.e(TAG, "Baaad");
++                    }
++                }
++            }
++        });
 +    }
 +
 +    private void passwordEntryInit() {
@@ -1742,7 +1911,7 @@ index 0000000..e7961b0
 +}
 diff --git a/src/com/android/settings/EncryptUserConfirm.java b/src/com/android/settings/EncryptUserConfirm.java
 new file mode 100644
-index 0000000..137b692
+index 0000000..4c2fc9a
 --- /dev/null
 +++ b/src/com/android/settings/EncryptUserConfirm.java
 @@ -0,0 +1,157 @@
@@ -2222,5 +2391,5 @@ index f6f49b8..2824a75 100644
      public static class DataUsageSummaryActivity extends Settings { /* empty */ }
      public static class AdvancedWifiSettingsActivity extends Settings { /* empty */ }
 -- 
-1.7.9.5
+1.9.1
 

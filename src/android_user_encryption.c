@@ -16,9 +16,11 @@
  * Author: Catalin Ionita <catalin.ionita@intel.com>
  */
 
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -34,8 +36,6 @@
 #include <efs/init.h>
 #include "cutils/android_reboot.h"
 #include "hardware_legacy/power.h"
-
-#define MNT_FORCE       0x00000001
 
 /**
  * Stop Android services
@@ -66,6 +66,50 @@ static void android_restart_services()
 {
     android_stop_services();
     android_start_services();
+}
+
+
+/**
+ * Restart Android framework
+ *
+ */
+int android_restart_framework(int user)
+{
+    struct stat st;
+    int ret;
+
+    char prop_value[PROP_VALUE_MAX];
+    memset(prop_value, 0, sizeof(prop_value));
+    snprintf(prop_value, sizeof(prop_value), "%d", user);
+    property_set("efs.selected_user", prop_value);
+
+    property_set("vold.decrypt", "trigger_reset_main");
+    sleep(2);
+
+    killProcessesWithOpenFiles("/data", 2);
+    ret = umount2("/data", MNT_FORCE);
+    if (ret < 0) {
+        LOGE("Failed to unmount /data");
+        return ret;
+    }
+    sleep(2);
+
+    memset(prop_value, 0, sizeof(prop_value));
+    property_get("efs.encrypted_list", prop_value, "");
+    // primary user encrypted
+    if (strstr(prop_value, ",0 ")) {
+        ret = remove_dir_content("/data/data");
+        if (ret < 0) {
+            LOGE("Failed to remove dir content from /data/data");
+            return ret;
+        }
+    }
+
+    property_set("crypto.primary_user", "decrypted");
+    sleep(2);
+    property_set("vold.decrypt", "trigger_restart_framework");
+
+    return 1;
 }
 
 /**
@@ -179,7 +223,7 @@ int android_encrypt_user_data(int user, char *password)
         return ret;
     }
 
-    ret = android_unlock_user_data(user, password);
+    ret = android_unlock_user_data(0, user, password);
     if (ret < 0) {
         LOGE("Unable to unlock user data %d", user);
         return ret;
@@ -200,7 +244,7 @@ static int android_unlock_primary_user(char *password)
     /*
      * Hopefully, the init library has saved a copy of the crypto header
      */
-    ret = read_crypto_header(&header, CRYPTO_HEADER_COPY);
+    ret = read_crypto_header(&header, CRYPTO_HEADER_COPY[0]);
     if (ret < 0)
         return ret;
 
@@ -217,7 +261,7 @@ static int android_unlock_primary_user(char *password)
     could not be unmounted on some systems.
     Therefore, we kill any processess still working there */
     killProcessesWithOpenFiles("/data", 2);
-    umount("/data", MNT_FORCE);
+    umount2("/data", MNT_FORCE);
     sleep(2);
 
     /* Unlock /data/data and /data/media/0 */
@@ -275,8 +319,6 @@ static int android_unlock_primary_user(char *password)
 
     property_set("crypto.primary_user", "decrypted");
     sleep(2);
-
-    /* Now that efs storages are mounted, restart the framework */
     property_set("vold.decrypt", "trigger_restart_framework");
 
     return 0;
@@ -290,7 +332,7 @@ static int android_unlock_primary_user(char *password)
  *
  * @return 0 on success, negative value on error
  */
-int android_unlock_user_data(int user, char *password)
+int android_unlock_user_data(int from_init, int user, char *password)
 {
     char storage_path[MAX_PATH_LENGTH];
     char private_dir_path[MAX_PATH_LENGTH];
@@ -299,6 +341,9 @@ int android_unlock_user_data(int user, char *password)
     LOGI("Unlock user %d", user);
 
     if (user == PRIMARY_USER) {
+        if (from_init)
+            property_set("efs.selected_user", "0");
+
         ret = android_unlock_primary_user(password);
         return ret;
     }
@@ -310,6 +355,21 @@ int android_unlock_user_data(int user, char *password)
     if (ret < 0) {
         LOGE("Error getting private storage for %s", storage_path);
         return ret;
+    }
+
+    if (from_init) {
+        char prop_value[PROP_VALUE_MAX];
+        memset(prop_value, 0, sizeof(prop_value));
+        snprintf(prop_value, sizeof(prop_value), "%d", user);
+        property_set("efs.selected_user", prop_value);
+
+        property_set("vold.decrypt", "trigger_reset_main");
+        sleep(2);
+
+        killProcessesWithOpenFiles("/data", 2);
+        if (umount2("/data", MNT_FORCE) < 0)
+            LOGE("umount failed: %s", strerror(errno));
+        sleep(2);
     }
 
     ret = access(private_dir_path, F_OK);
@@ -353,6 +413,12 @@ int android_unlock_user_data(int user, char *password)
     if (ret < 0) {
         LOGE("Error unlocking efs storage %s", storage_path);
         return ret;
+    }
+
+    if (from_init) {
+        property_set("crypto.primary_user", "decrypted");
+        sleep(2);
+        property_set("vold.decrypt", "trigger_restart_framework");
     }
 
     return 0;

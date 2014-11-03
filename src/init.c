@@ -24,6 +24,9 @@
 #include <dirent.h>
 #include <efs/init.h>
 #include <efs/android_user_encryption.h>
+#include <efs/file_utils.h>
+#include <efs/efs.h>
+#include <cutils/properties.h>
 
 int copy(char *source, char *destination)
 {
@@ -112,6 +115,7 @@ int get_private_storage_path(char *path, char *storage_path)
 int android_check_primary_user_encrypted()
 {
     char storage_path[MAX_PATH_LENGTH], private_dir_path[MAX_PATH_LENGTH];
+    char property[PROPERTY_VALUE_MAX];
     int ret = -1, fd1, fd2;
 
     memset(storage_path, 0, sizeof(storage_path));
@@ -122,8 +126,15 @@ int android_check_primary_user_encrypted()
         return ret;
 
     ret = access(private_dir_path, F_OK);
-    if (ret < 0)
+    if (ret < 0) {
+        if (access(storage_path, F_OK) == 0) {
+            memset(property, 0, sizeof(property));
+            sprintf(property + strlen(property), "%s%d,%d ",
+                "user", PRIMARY_USER, PRIMARY_USER);
+            property_set("efs.unencrypted_list", property);
+        }
         return ret;
+    }
 
     memset(storage_path, 0, sizeof(storage_path));
     memset(private_dir_path, 0, sizeof(storage_path));
@@ -138,11 +149,11 @@ int android_check_primary_user_encrypted()
     if (ret < 0)
         return ret;
 
-    fd1 = open(ANDROID_CRYPTO_HEADER_1, O_RDONLY);
+    fd1 = open(ANDROID_CRYPTO_HEADER_1[PRIMARY_USER], O_RDONLY);
     if (fd1 < 0)
         return fd1;
 
-    fd2 = open(ANDROID_CRYPTO_HEADER_2, O_RDONLY);
+    fd2 = open(ANDROID_CRYPTO_HEADER_2[PRIMARY_USER], O_RDONLY);
     if (fd2 < 0) {
         close(fd1);
         return fd2;
@@ -152,12 +163,98 @@ int android_check_primary_user_encrypted()
     close(fd2);
 
     /* Make a copy of the crypto headear on /mnt/secure */
-    ret = copy(ANDROID_CRYPTO_HEADER_1, CRYPTO_HEADER_COPY);
+    ret = copy(ANDROID_CRYPTO_HEADER_1[PRIMARY_USER], CRYPTO_HEADER_COPY[PRIMARY_USER]);
     if (ret < 0) {
         return ret;
     }
 
     property_set("crypto.primary_user", "encrypted");
 
+    memset(property, 0, sizeof(property));
+    sprintf(property + strlen(property), "%s%d,%d ",
+        "user", PRIMARY_USER, PRIMARY_USER);
+    property_set("efs.encrypted_list", property);
+
     return 1;
 }
+
+int android_check_user_encrypted(int user)
+{
+    char storage_path[MAX_PATH_LENGTH], private_dir_path[MAX_PATH_LENGTH];
+    char property[PROPERTY_VALUE_MAX];
+    int ret = -1, fd1, fd2;
+
+    memset(storage_path, 0, sizeof(storage_path));
+    memset(private_dir_path, 0, sizeof(storage_path));
+    sprintf(storage_path, "%s/%d", ANDROID_USER_DATA_PATH, user);
+    ret = get_private_storage_path(private_dir_path, storage_path);
+    if (ret < 0)
+        return ret;
+
+    ret = access(private_dir_path, F_OK);
+    if (ret < 0) {
+        if (access(storage_path, F_OK) == 0) {
+            memset(property, 0, sizeof(property));
+            __system_property_get("efs.unencrypted_list", property);
+            sprintf(property + strlen(property), "%s%d,%d ",
+                "user", user, user);
+            property_set("efs.unencrypted_list", property);
+        }
+        return ret;
+    }
+
+    memset(storage_path, 0, sizeof(storage_path));
+    memset(private_dir_path, 0, sizeof(storage_path));
+    sprintf(storage_path, "%s/%d", ANDROID_VIRTUAL_SDCARD_PATH, user);
+
+    ret = get_private_storage_path(private_dir_path, storage_path);
+    if (ret < 0)
+        return ret;
+
+    ret = access(private_dir_path, F_OK);
+    if (ret < 0)
+        return ret;
+
+    fd1 = open(ANDROID_CRYPTO_HEADER_1[user], O_RDONLY);
+    if (fd1 < 0)
+        return fd1;
+
+    fd2 = open(ANDROID_CRYPTO_HEADER_2[user], O_RDONLY);
+    if (fd2 < 0) {
+        close(fd1);
+        return fd2;
+    }
+
+    close(fd1);
+    close(fd2);
+
+    /* Make a copy of the crypto headear on /mnt/secure */
+    ret = copy(ANDROID_CRYPTO_HEADER_1[user], CRYPTO_HEADER_COPY[user]);
+    if (ret < 0) {
+        return ret;
+    }
+
+    property_set("crypto.primary_user", "encrypted");
+
+    memset(property, 0, sizeof(property));
+    __system_property_get("efs.encrypted_list", property);
+    sprintf(property + strlen(property), "%s%d,%d ",
+        "user", user, user);
+    property_set("efs.encrypted_list", property);
+
+    return 1;
+}
+
+int android_check_for_encrypted_users() {
+    int ret = -1;
+    int i;
+
+    ret = android_check_primary_user_encrypted() == 1 ? 1 : ret;
+
+    for (i = 10; i < 17; ++i) {
+        ret = android_check_user_encrypted(i) == 1 ? 1 : ret;
+    }
+
+    return ret;
+}
+

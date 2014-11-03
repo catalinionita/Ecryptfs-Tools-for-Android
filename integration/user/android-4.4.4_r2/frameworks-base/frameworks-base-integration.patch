@@ -1,19 +1,54 @@
-From 3e9fd188848e5fc04bfc4b4931ccc336c4229a77 Mon Sep 17 00:00:00 2001
+From 3070d4e59a96c660ad658981d0481e8ab4ea2f23 Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
-Date: Wed, 6 Aug 2014 16:23:45 +0300
-Subject: [PATCH] EFS integration with MountService
+Date: Mon, 3 Nov 2014 11:25:51 +0200
+Subject: [PATCH] Boot into single user
 
 ---
- core/java/android/os/storage/IMountService.java    |  597 +++++++++++++++++++-
- services/java/com/android/server/MountService.java |  227 ++++++++
- services/java/com/android/server/SystemServer.java |    7 +-
- 3 files changed, 828 insertions(+), 3 deletions(-)
+ Android.mk                                         |   1 +
+ core/java/android/os/IEfsService.aidl              |  11 +
+ core/java/android/os/storage/IMountService.java    | 638 ++++++++++++++++++++-
+ .../keyguard/KeyguardMultiUserSelectorView.java    |  32 +-
+ services/java/com/android/server/EfsService.java   |  41 ++
+ services/java/com/android/server/MountService.java | 242 ++++++++
+ services/java/com/android/server/SystemServer.java |  14 +-
+ 7 files changed, 963 insertions(+), 16 deletions(-)
+ create mode 100644 core/java/android/os/IEfsService.aidl
+ create mode 100644 services/java/com/android/server/EfsService.java
 
+diff --git a/Android.mk b/Android.mk
+index bcfc240..fcb5dca 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -151,6 +151,7 @@ LOCAL_SRC_FILES += \
+ 	core/java/android/os/IBatteryPropertiesListener.aidl \
+ 	core/java/android/os/IBatteryPropertiesRegistrar.aidl \
+ 	core/java/android/os/ICancellationSignal.aidl \
++	core/java/android/os/IEfsService.aidl \
+ 	core/java/android/os/IHardwareService.aidl \
+ 	core/java/android/os/IMessenger.aidl \
+ 	core/java/android/os/INetworkManagementService.aidl \
+diff --git a/core/java/android/os/IEfsService.aidl b/core/java/android/os/IEfsService.aidl
+new file mode 100644
+index 0000000..21603a7
+--- /dev/null
++++ b/core/java/android/os/IEfsService.aidl
+@@ -0,0 +1,11 @@
++/*
++* aidl file : frameworks/base/core/java/android/os/IEfsService.aidl
++* This file contains definitions of functions which are exposed by service
++*/
++package android.os;
++/**
++* {@hide}
++*/
++interface IEfsService {
++}
++
 diff --git a/core/java/android/os/storage/IMountService.java b/core/java/android/os/storage/IMountService.java
-index 51ba2f6..bc70fe7 100644
+index 51ba2f6..47cabda 100644
 --- a/core/java/android/os/storage/IMountService.java
 +++ b/core/java/android/os/storage/IMountService.java
-@@ -755,7 +755,336 @@ public interface IMountService extends IInterface {
+@@ -755,7 +755,358 @@ public interface IMountService extends IInterface {
                  }
                  return _result;
              }
@@ -220,13 +255,14 @@ index 51ba2f6..bc70fe7 100644
 +            /**
 +             * unlock user data
 +             */
-+            public int unlockUserData(int userId, String password)
++            public int unlockUserData(int fromInit, int userId, String password)
 +				throws RemoteException {
 +                Parcel _data = Parcel.obtain();
 +                Parcel _reply = Parcel.obtain();
 +                int _result;
 +                try {
 +                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(fromInit);
 +                    _data.writeInt(userId);
 +                    _data.writeString(password);
 +                    mRemote.transact(Stub.TRANSACTION_unlockUserData, _data, _reply, 0);
@@ -347,11 +383,32 @@ index 51ba2f6..bc70fe7 100644
 +                }
 +                return _result;
 +            }
++
++            /**
++             * restart Android from EFS
++             */
++            public int restartFramework(int userId)
++				throws RemoteException {
++                Parcel _data = Parcel.obtain();
++                Parcel _reply = Parcel.obtain();
++                int _result;
++                try {
++                    _data.writeInterfaceToken(DESCRIPTOR);
++                    _data.writeInt(userId);
++                    mRemote.transact(Stub.TRANSACTION_restartFramework, _data, _reply, 0);
++                    _reply.readException();
++                    _result = _reply.readInt();
++                } finally {
++                    _reply.recycle();
++                    _data.recycle();
++                }
++                return _result;
++            }
 +       }
  
          private static final String DESCRIPTOR = "IMountService";
  
-@@ -829,6 +1158,36 @@ public interface IMountService extends IInterface {
+@@ -829,6 +1180,38 @@ public interface IMountService extends IInterface {
  
          static final int TRANSACTION_mkdirs = IBinder.FIRST_CALL_TRANSACTION + 34;
  
@@ -385,10 +442,12 @@ index 51ba2f6..bc70fe7 100644
 +
 +        static final int TRANSACTION_getEfsEncryptionProgress = IBinder.FIRST_CALL_TRANSACTION + 49;
 +
++        static final int TRANSACTION_restartFramework = IBinder.FIRST_CALL_TRANSACTION + 50;
++
          /**
           * Cast an IBinder object into an IMountService interface, generating a
           * proxy if needed.
-@@ -1181,6 +1540,150 @@ public interface IMountService extends IInterface {
+@@ -1181,6 +1564,161 @@ public interface IMountService extends IInterface {
                      reply.writeInt(result);
                      return true;
                  }
@@ -476,11 +535,13 @@ index 51ba2f6..bc70fe7 100644
 +                }
 +                case TRANSACTION_unlockUserData: {
 +                    data.enforceInterface(DESCRIPTOR);
++                    int fromInit;
++                    fromInit = data.readInt();
 +                    int userId;
 +                    userId = data.readInt();
 +                    String password;
 +                    password = data.readString();
-+                    int resultCode = unlockUserData(userId, password);
++                    int resultCode = unlockUserData(fromInit, userId, password);
 +                    reply.writeNoException();
 +                    reply.writeInt(resultCode);
 +                    return true;
@@ -536,10 +597,28 @@ index 51ba2f6..bc70fe7 100644
 +                    reply.writeInt(resultCode);
 +                    return true;
 +                }
++                case TRANSACTION_restartFramework: {
++                    data.enforceInterface(DESCRIPTOR);
++                    int userId;
++                    userId = data.readInt();
++                    int resultCode = restartFramework(userId);
++                    reply.writeNoException();
++                    reply.writeInt(resultCode);
++                    return true;
++                }
              }
              return super.onTransact(code, data, reply, flags);
          }
-@@ -1412,4 +1915,94 @@ public interface IMountService extends IInterface {
+@@ -1390,7 +1928,7 @@ public interface IMountService extends IInterface {
+ 
+     /**
+      * Gets the path on the filesystem for the ASEC container itself.
+-     * 
++     *
+      * @param cid ASEC container ID
+      * @return path to filesystem or {@code null} if it's not found
+      * @throws RemoteException
+@@ -1412,4 +1950,100 @@ public interface IMountService extends IInterface {
       * external storage data or OBB directory belonging to calling app.
       */
      public int mkdirs(String callingPkg, String path) throws RemoteException;
@@ -601,7 +680,7 @@ index 51ba2f6..bc70fe7 100644
 +    /*
 +     * Unlock user data
 +     */
-+    public int unlockUserData(int userId, String password)
++    public int unlockUserData(int fromInit, int userId, String password)
 +		throws RemoteException;
 +
 +    /*
@@ -633,12 +712,110 @@ index 51ba2f6..bc70fe7 100644
 +     */
 +    public int decryptUserData(int userId, String password)
 +		throws RemoteException;
++
++    /*
++     * restart Android from EFS
++     */
++    public int restartFramework(int userId)
++        throws RemoteException;
  }
+diff --git a/packages/Keyguard/src/com/android/keyguard/KeyguardMultiUserSelectorView.java b/packages/Keyguard/src/com/android/keyguard/KeyguardMultiUserSelectorView.java
+index 7975d8e..6eac756 100644
+--- a/packages/Keyguard/src/com/android/keyguard/KeyguardMultiUserSelectorView.java
++++ b/packages/Keyguard/src/com/android/keyguard/KeyguardMultiUserSelectorView.java
+@@ -145,21 +145,27 @@ public class KeyguardMultiUserSelectorView extends FrameLayout implements View.O
+                 return;
+             } else {
+                 // Reset the previously active user to appear inactive
+-                mCallback.hideSecurityView(FADE_OUT_ANIMATION_DURATION);
+-                setAllClickable(false);
+-                avatar.lockPressed(true);
+-                mActiveUserAvatar.setActive(false, true, new Runnable() {
+-                    @Override
+-                    public void run() {
+-                        mActiveUserAvatar = avatar;
+-                        try {
+-                            ActivityManagerNative.getDefault()
++                final int selected_user = android.os.SystemProperties.getInt("efs.selected_user", -1);
++                if (selected_user != -1 && selected_user != avatar.getUserInfo().id) {
++                    return;
++                } else {
++                    mCallback.hideSecurityView(FADE_OUT_ANIMATION_DURATION);
++                    setAllClickable(false);
++                    avatar.lockPressed(true);
++                    mActiveUserAvatar.setActive(false, true, new Runnable() {
++                        @Override
++                        public void run() {
++                            try {
++                                mActiveUserAvatar = avatar;
++                                Log.i(TAG, "Switching to " + avatar.getUserInfo().id);
++                                ActivityManagerNative.getDefault()
+                                     .switchUser(avatar.getUserInfo().id);
+-                        } catch (RemoteException re) {
+-                            Log.e(TAG, "Couldn't switch user " + re);
++                            } catch (RemoteException re) {
++                                Log.e(TAG, "Couldn't switch user " + re);
++                            }
+                         }
+-                    }
+-                });
++                    });
++                }
+             }
+         }
+     }
+diff --git a/services/java/com/android/server/EfsService.java b/services/java/com/android/server/EfsService.java
+new file mode 100644
+index 0000000..94cdd0d
+--- /dev/null
++++ b/services/java/com/android/server/EfsService.java
+@@ -0,0 +1,41 @@
++package com.android.server;
++
++import android.app.ActivityManagerNative;
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.content.IntentFilter;
++import android.os.IEfsService;
++import android.util.Log;
++
++public class EfsService extends IEfsService.Stub {
++    private static final String TAG = "EfsService";
++    private Context mContext;
++
++    private int selected_user = -1;
++
++    public EfsService(Context context) {
++        super();
++        mContext = context;
++        selected_user = android.os.SystemProperties.getInt("efs.selected_user", -1);
++        mContext.registerReceiver(new BootReceiver(), new IntentFilter(Intent.ACTION_BOOT_COMPLETED));
++    }
++
++    private class BootReceiver extends BroadcastReceiver {
++
++       @Override
++       public void onReceive(Context context, Intent intent) {
++            if (intent.getAction().equals(Intent.ACTION_BOOT_COMPLETED)) {
++                if (selected_user > -1) {
++                    try {
++                        ActivityManagerNative.getDefault().switchUser(selected_user);
++                        Log.i(TAG, "Boot completed, switch to user " + selected_user);
++                    } catch (Exception e) {
++                        Log.e(TAG, "Could not switch user", e);
++                    }
++                }
++            }
++       }
++    }
++}
++
 diff --git a/services/java/com/android/server/MountService.java b/services/java/com/android/server/MountService.java
-index e60231a..b3c4815 100644
+index e60231a..d5c1d5a 100644
 --- a/services/java/com/android/server/MountService.java
 +++ b/services/java/com/android/server/MountService.java
-@@ -2830,4 +2830,231 @@ class MountService extends IMountService.Stub
+@@ -2830,4 +2830,246 @@ class MountService extends IMountService.Stub
              mConnector.monitor();
          }
      }
@@ -779,11 +956,11 @@ index e60231a..b3c4815 100644
 +        return rc;
 +    }
 +
-+    public int unlockUserData(int userId, String password) {
++    public int unlockUserData(int fromInit, int userId, String password) {
 +        int rc = StorageResultCode.OperationSucceeded;
 +        final NativeDaemonEvent event;
 +        try {
-+            event = mConnector.execute("efs", "unlock_user_data", userId, password);
++            event = mConnector.execute("efs", "unlock_user_data", fromInit, userId, password);
 +            return Integer.parseInt(event.getMessage());
 +        } catch (NativeDaemonConnectorException e) {
 +            int code = e.getCode();
@@ -869,9 +1046,24 @@ index e60231a..b3c4815 100644
 +        }
 +        return rc;
 +    }
++
++    public int restartFramework(int userId) {
++        int rc = StorageResultCode.OperationSucceeded;
++        final NativeDaemonEvent event;
++        try {
++            event = mConnector.execute("efs", "restart_framework", userId);
++            return Integer.parseInt(event.getMessage());
++        } catch (NativeDaemonConnectorException e) {
++            int code = e.getCode();
++            if (code != VoldResponseCode.OpFailedStorageBusy) {
++                rc = StorageResultCode.OperationFailedInternalError;
++            }
++        }
++        return rc;
++    }
  }
 diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
-index a42cbcf..e255496 100644
+index a42cbcf..6a1da59 100644
 --- a/services/java/com/android/server/SystemServer.java
 +++ b/services/java/com/android/server/SystemServer.java
 @@ -238,6 +238,11 @@ class ServerThread {
@@ -886,6 +1078,29 @@ index a42cbcf..e255496 100644
              pm = PackageManagerService.main(context, installer,
                      factoryTest != SystemServer.FACTORY_TEST_OFF,
                      onlyCore);
+@@ -532,6 +537,13 @@ class ServerThread {
+                 } catch (Throwable e) {
+                     reportWtf("starting Service Discovery Service", e);
+                 }
++
++                try {
++                    Slog.i(TAG, "EFS Service");
++                    ServiceManager.addService("EFS", new EfsService(context));
++                } catch (Throwable e) {
++                    reportWtf("starting EfsService Service", e);
++                }
+             }
+ 
+             if (!disableNonCoreServices) {
+@@ -770,7 +782,7 @@ class ServerThread {
+                 }
+             }
+ 
+-            if (!disableNonCoreServices && 
++            if (!disableNonCoreServices &&
+                 context.getResources().getBoolean(R.bool.config_dreamsSupported)) {
+                 try {
+                     Slog.i(TAG, "Dreams Service");
 -- 
-1.7.9.5
+1.9.1
 

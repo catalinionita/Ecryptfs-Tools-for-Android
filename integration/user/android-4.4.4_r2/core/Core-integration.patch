@@ -1,11 +1,11 @@
-From 890a2c10a568a14d90f1aa4b20ffa40ef314a1fc Mon Sep 17 00:00:00 2001
+From 3743f1883cdf9d9373067b7b8325c8e4e9cad853 Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
-Date: Wed, 6 Aug 2014 14:08:58 +0300
-Subject: [PATCH] Add support to boot encrypted device
+Date: Mon, 17 Nov 2014 11:51:50 +0200
+Subject: [PATCH] Boot into single user
 
 ---
- init/Android.mk |    4 ++++
- init/builtins.c |   13 +++++++++----
+ init/Android.mk |  4 ++++
+ init/builtins.c | 13 +++++++++----
  2 files changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/init/Android.mk b/init/Android.mk
@@ -24,7 +24,7 @@ index abfc68a..e333e45 100644
  
  # Make a symlink from /sbin/ueventd and /sbin/watchdogd to /init
 diff --git a/init/builtins.c b/init/builtins.c
-index e8c8f91..ba26555 100644
+index e8c8f91..12fa1d2 100644
 --- a/init/builtins.c
 +++ b/init/builtins.c
 @@ -48,6 +48,7 @@
@@ -34,18 +34,18 @@ index e8c8f91..ba26555 100644
 +#include <efs/init.h>
  
  void add_environment(const char *name, const char *value);
-
+ 
 @@ -510,6 +511,10 @@ int do_mount_all(int nargs, char **args)
          /* If fs_mgr determined this is an unencrypted device, then trigger
           * that action.
           */
 +        /* Check if device is encrypted using file system encryption */
-+        if (android_check_primary_user_encrypted() == 1) {
++        if (android_check_for_encrypted_users() == 1) {
 +            mount("tmpfs", "/data", "tmpfs", MS_NOATIME | MS_NOSUID | MS_NODEV, "size=256m,mode=0771,uid=1000,gid=1000");
 +        }
          action_for_each_trigger("nonencrypted", action_add_queue_tail);
      }
 
 -- 
-1.7.9.5
+1.9.1
 
