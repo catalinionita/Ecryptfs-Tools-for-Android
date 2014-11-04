@@ -1,7 +1,7 @@
-From d320d9103132b6d27321f6fa345a6c3320408def Mon Sep 17 00:00:00 2001
+From a710844a4b7aa53bc841499ca987ad93a3963d7f Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
-Date: Mon, 3 Nov 2014 11:17:06 +0200
-Subject: [PATCH] Boot into single user
+Date: Tue, 4 Nov 2014 17:14:20 +0200
+Subject: [PATCH] Improve user selection screen layout
 
 ---
  AndroidManifest.xml                                |  27 +
@@ -12,9 +12,10 @@ Subject: [PATCH] Boot into single user
  res/layout/encrypt_user_password_entry.xml         |  49 ++
  res/layout/encrypt_user_password_field.xml         |  44 ++
  res/layout/encrypt_user_progress.xml               |  80 +++
- res/layout/encrypt_user_select.xml                 |  54 ++
+ res/layout/encrypt_user_select.xml                 |  72 ++
  res/layout/encrypt_user_settings.xml               |  78 +++
  res/layout/encrypt_user_status.xml                 |  40 ++
+ res/layout/encrypt_user_textview.xml               |  24 +
  res/values/strings.xml                             | 128 ++++
  res/values/styles.xml                              |   4 +
  res/xml/security_settings_encrypted_misc.xml       | 108 +++
@@ -27,7 +28,7 @@ Subject: [PATCH] Boot into single user
  src/com/android/settings/EncryptUserSettings.java  | 223 +++++++
  src/com/android/settings/SecuritySettings.java     |  37 +-
  src/com/android/settings/Settings.java             |   2 +
- 23 files changed, 2132 insertions(+), 6 deletions(-)
+ 24 files changed, 2174 insertions(+), 6 deletions(-)
  create mode 100644 res/layout/decrypt_user_confirm.xml
  create mode 100644 res/layout/decrypt_user_settings.xml
  create mode 100644 res/layout/encrypt_user_blank.xml
@@ -38,6 +39,7 @@ Subject: [PATCH] Boot into single user
  create mode 100644 res/layout/encrypt_user_select.xml
  create mode 100644 res/layout/encrypt_user_settings.xml
  create mode 100644 res/layout/encrypt_user_status.xml
+ create mode 100644 res/layout/encrypt_user_textview.xml
  create mode 100644 res/xml/security_settings_encrypted_misc.xml
  create mode 100644 res/xml/security_settings_unecrypted_device_encrypted_primary_user.xml
  create mode 100644 src/com/android/settings/DecryptUserConfirm.java
@@ -510,10 +512,10 @@ index 0000000..6b8e65f
 +</LinearLayout>
 diff --git a/res/layout/encrypt_user_select.xml b/res/layout/encrypt_user_select.xml
 new file mode 100644
-index 0000000..f228ca2
+index 0000000..c95b5bb
 --- /dev/null
 +++ b/res/layout/encrypt_user_select.xml
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,72 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!-- Copyright (C) 2011 The Android Open Source Project
 +
@@ -528,44 +530,62 @@ index 0000000..f228ca2
 +     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 +     See the License for the specific language governing permissions and
 +     limitations under the License.
-+  -->
++-->
 +
-+<LinearLayout
-+    xmlns:android="http://schemas.android.com/apk/res/android"
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
 +    android:layout_width="match_parent"
 +    android:layout_height="match_parent"
-+    android:orientation="vertical"
-+>
++    android:gravity="bottom"
++    android:orientation="vertical" >
++
 +    <ListView
 +        android:id="@+id/list"
 +        android:layout_width="match_parent"
-+        android:layout_height="wrap_content">
++        android:layout_height="0dp"
++        android:layout_gravity="bottom"
++        android:layout_weight="0.75"
++        android:stackFromBottom="true" >
 +    </ListView>
 +
-+    <TextView
-+        android:id="@+id/username"
-+        android:layout_width="wrap_content"
-+        android:layout_height="wrap_content">
-+    </TextView>
-+ 
-+    <TextView
-+        android:id="@+id/userid"
-+        android:layout_width="wrap_content"
-+        android:layout_height="wrap_content">
-+    </TextView>
-+    
-+    <TextView
-+        android:id="@+id/encrypted"
-+        android:layout_width="wrap_content"
-+        android:layout_height="wrap_content">
-+    </TextView>
-+
-+    <Button
-+        android:id="@+id/button"
++    <LinearLayout
 +        android:layout_width="match_parent"
 +        android:layout_height="wrap_content"
-+        android:text="@string/encrypt_user_select">
-+    </Button>
++        android:gravity="center_horizontal"
++        android:orientation="vertical" >
++
++        <TextView
++            android:id="@+id/username"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:textSize="30sp" />
++
++        <TextView
++            android:id="@+id/userid"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:textSize="30sp" />
++
++        <TextView
++            android:id="@+id/encrypted"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:textSize="30sp" />
++
++    </LinearLayout>
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="60dp"
++        android:gravity="center"
++        android:orientation="vertical" >
++
++        <Button
++            android:id="@+id/button"
++            android:layout_width="270dp"
++            android:layout_height="wrap_content"
++            android:text="@string/encrypt_user_select"
++            android:textSize="30sp" />
++    </LinearLayout>
 +
 +</LinearLayout>
 diff --git a/res/layout/encrypt_user_settings.xml b/res/layout/encrypt_user_settings.xml
@@ -698,6 +718,36 @@ index 0000000..c7264be
 +        android:drawableLeft="@*android:drawable/ic_lock_idle_lock"
 +        />
 +</LinearLayout>
+diff --git a/res/layout/encrypt_user_textview.xml b/res/layout/encrypt_user_textview.xml
+new file mode 100644
+index 0000000..3542f88
+--- /dev/null
++++ b/res/layout/encrypt_user_textview.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2006 The Android Open Source Project
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++-->
++
++<TextView xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@android:id/text1"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:gravity="center_horizontal"
++    android:textSize="30sp"
++    android:paddingLeft="6dip"
++    android:minHeight="?android:attr/listPreferredItemHeight"/>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
 index 22eb3e8..25fee29 100644
 --- a/res/values/strings.xml
@@ -1166,7 +1216,7 @@ index 0000000..8c6a528
 +}
 diff --git a/src/com/android/settings/EncryptUser.java b/src/com/android/settings/EncryptUser.java
 new file mode 100644
-index 0000000..d92d18a
+index 0000000..241c317
 --- /dev/null
 +++ b/src/com/android/settings/EncryptUser.java
 @@ -0,0 +1,739 @@
@@ -1641,7 +1691,7 @@ index 0000000..d92d18a
 +        String values[] = userList.GetUserList();
 +
 +        ArrayAdapter<String> adapter = new ArrayAdapter<String> (this,
-+            android.R.layout.simple_list_item_1, android.R.id.text1, values);
++            R.layout.encrypt_user_textview, android.R.id.text1, values);
 +
 +        listView.setAdapter(adapter);
 +
