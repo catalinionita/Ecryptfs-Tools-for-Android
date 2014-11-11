@@ -1,17 +1,18 @@
-From 3070d4e59a96c660ad658981d0481e8ab4ea2f23 Mon Sep 17 00:00:00 2001
+From 1f8401bdf2fc194efb5c04f4e159abedb7061b96 Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
-Date: Mon, 3 Nov 2014 11:25:51 +0200
-Subject: [PATCH] Boot into single user
+Date: Tue, 11 Nov 2014 17:16:34 +0200
+Subject: [PATCH] Added AlertDialog when attempting to log into different user
+ than the one selected at boot
 
 ---
  Android.mk                                         |   1 +
  core/java/android/os/IEfsService.aidl              |  11 +
  core/java/android/os/storage/IMountService.java    | 638 ++++++++++++++++++++-
- .../keyguard/KeyguardMultiUserSelectorView.java    |  32 +-
+ .../keyguard/KeyguardMultiUserSelectorView.java    |  46 +-
  services/java/com/android/server/EfsService.java   |  41 ++
  services/java/com/android/server/MountService.java | 242 ++++++++
  services/java/com/android/server/SystemServer.java |  14 +-
- 7 files changed, 963 insertions(+), 16 deletions(-)
+ 7 files changed, 977 insertions(+), 16 deletions(-)
  create mode 100644 core/java/android/os/IEfsService.aidl
  create mode 100644 services/java/com/android/server/EfsService.java
 
@@ -720,10 +721,45 @@ index 51ba2f6..47cabda 100644
 +        throws RemoteException;
  }
 diff --git a/packages/Keyguard/src/com/android/keyguard/KeyguardMultiUserSelectorView.java b/packages/Keyguard/src/com/android/keyguard/KeyguardMultiUserSelectorView.java
-index 7975d8e..6eac756 100644
+index 7975d8e..ad0272a 100644
 --- a/packages/Keyguard/src/com/android/keyguard/KeyguardMultiUserSelectorView.java
 +++ b/packages/Keyguard/src/com/android/keyguard/KeyguardMultiUserSelectorView.java
-@@ -145,21 +145,27 @@ public class KeyguardMultiUserSelectorView extends FrameLayout implements View.O
+@@ -16,7 +16,9 @@
+ 
+ package com.android.keyguard;
+ 
++import android.app.Activity;
+ import android.app.ActivityManagerNative;
++import android.app.AlertDialog;
+ import android.content.Context;
+ import android.content.pm.UserInfo;
+ import android.os.RemoteException;
+@@ -25,6 +27,7 @@ import android.util.Log;
+ import android.view.MotionEvent;
+ import android.view.View;
+ import android.view.ViewGroup;
++import android.view.WindowManager;
+ import android.widget.FrameLayout;
+ 
+ import java.util.ArrayList;
+@@ -38,6 +41,8 @@ public class KeyguardMultiUserSelectorView extends FrameLayout implements View.O
+     private ViewGroup mUsersGrid;
+     private KeyguardMultiUserAvatar mActiveUserAvatar;
+     private KeyguardHostView.UserSwitcherCallback mCallback;
++    private Context mContext;
++    private String dialogMessage = "Cannot log into non decrypted user. Reboot for other user";
+     private static final int FADE_OUT_ANIMATION_DURATION = 100;
+ 
+     public KeyguardMultiUserSelectorView(Context context) {
+@@ -50,6 +55,7 @@ public class KeyguardMultiUserSelectorView extends FrameLayout implements View.O
+ 
+     public KeyguardMultiUserSelectorView(Context context, AttributeSet attrs, int defStyle) {
+         super(context, attrs, defStyle);
++        mContext = context;
+     }
+ 
+     protected void onFinishInflate () {
+@@ -145,21 +151,35 @@ public class KeyguardMultiUserSelectorView extends FrameLayout implements View.O
                  return;
              } else {
                  // Reset the previously active user to appear inactive
@@ -738,6 +774,14 @@ index 7975d8e..6eac756 100644
 -                            ActivityManagerNative.getDefault()
 +                final int selected_user = android.os.SystemProperties.getInt("efs.selected_user", -1);
 +                if (selected_user != -1 && selected_user != avatar.getUserInfo().id) {
++                    final AlertDialog dialog = new AlertDialog.Builder(mContext)
++                        .setMessage(dialogMessage)
++                        .setNeutralButton(R.string.ok, null)
++                        .create();
++                    if (!(mContext instanceof Activity)) {
++                        dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG);
++                    }
++                    dialog.show();
 +                    return;
 +                } else {
 +                    mCallback.hideSecurityView(FADE_OUT_ANIMATION_DURATION);
