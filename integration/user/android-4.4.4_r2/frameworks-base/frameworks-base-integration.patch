@@ -1,4 +1,4 @@
-From 1f8401bdf2fc194efb5c04f4e159abedb7061b96 Mon Sep 17 00:00:00 2001
+From e27bdab5db1ff839b33d91a139bf23c2f2e001d4 Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
 Date: Tue, 11 Nov 2014 17:16:34 +0200
 Subject: [PATCH] Added AlertDialog when attempting to log into different user
@@ -1107,7 +1107,7 @@ index e60231a..d5c1d5a 100644
 +    }
  }
 diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
-index a42cbcf..6a1da59 100644
+index a42cbcf..d625395 100644
 --- a/services/java/com/android/server/SystemServer.java
 +++ b/services/java/com/android/server/SystemServer.java
 @@ -238,6 +238,11 @@ class ServerThread {
@@ -1122,21 +1122,7 @@ index a42cbcf..6a1da59 100644
              pm = PackageManagerService.main(context, installer,
                      factoryTest != SystemServer.FACTORY_TEST_OFF,
                      onlyCore);
-@@ -532,6 +537,13 @@ class ServerThread {
-                 } catch (Throwable e) {
-                     reportWtf("starting Service Discovery Service", e);
-                 }
-+
-+                try {
-+                    Slog.i(TAG, "EFS Service");
-+                    ServiceManager.addService("EFS", new EfsService(context));
-+                } catch (Throwable e) {
-+                    reportWtf("starting EfsService Service", e);
-+                }
-             }
- 
-             if (!disableNonCoreServices) {
-@@ -770,7 +782,7 @@ class ServerThread {
+@@ -770,7 +775,7 @@ class ServerThread {
                  }
              }
  
@@ -1145,6 +1131,20 @@ index a42cbcf..6a1da59 100644
                  context.getResources().getBoolean(R.bool.config_dreamsSupported)) {
                  try {
                      Slog.i(TAG, "Dreams Service");
+@@ -816,6 +821,13 @@ class ServerThread {
+                     reportWtf("starting MediaRouterService", e);
+                 }
+             }
++            
++            try {
++                Slog.i(TAG, "EFS Service");
++                ServiceManager.addService("EFS", new EfsService(context));
++            } catch (Throwable e) {
++                reportWtf("starting EfsService Service", e);
++            }
+         }
+ 
+         // Before things start rolling, be sure we have decided whether
 -- 
 1.9.1
 
