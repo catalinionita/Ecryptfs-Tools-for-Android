@@ -156,7 +156,7 @@ int decrypt_buffer(unsigned char *encrypted_text, int length,
  *
  * @return 0 on success, negative value on error
  */
-int generate_crypto_header(struct crypto_header *header)
+int generate_crypto_header(struct crypto_header *header, int user)
 {
     int fd, ret;
 
@@ -186,13 +186,16 @@ int generate_crypto_header(struct crypto_header *header)
         close(fd);
         return -1;
     }
+    memset(header->username, 0, MAX_USERNAME_LEN);
+    snprintf(header->username, MAX_USERNAME_LEN, "user%d", user);
 
     /* Hash fefek, fnek and salt into a signature */
     SHA512((unsigned char *)header,
-           ECRYPTFS_KEY_LEN + ECRYPTFS_KEY_LEN + PASSWD_SALT_LEN,
+           ECRYPTFS_KEY_LEN + ECRYPTFS_KEY_LEN + PASSWD_SALT_LEN + MAX_USERNAME_LEN,
            header->signature);
 
     close(fd);
+
     return 0;
 }
 
@@ -365,7 +368,7 @@ int read_crypto_header(struct crypto_header *header, char *path)
  *
  * @return 0 on success, negative value on error
  */
-int generate_crypt_info(char *storage_path, char *passwd)
+int generate_crypt_info(char *storage_path, int user, char *passwd)
 {
     struct crypto_header header;
     char key_storage_path[MAX_PATH_LENGTH];
@@ -389,7 +392,7 @@ int generate_crypt_info(char *storage_path, char *passwd)
     }
 
     /* Generate fefek, fnek and salt */
-    ret = generate_crypto_header(&header);
+    ret = generate_crypto_header(&header, user);
     if (ret < 0) {
         LOGE("generate_crypto_header for %s failed", private_dir_path);
         return ret;
@@ -446,7 +449,7 @@ int check_passwd(struct crypto_header *header, char *passwd)
 
     /* Compute signature of the header */
     SHA512((unsigned char *)header,
-           ECRYPTFS_KEY_LEN + ECRYPTFS_KEY_LEN + PASSWD_SALT_LEN,
+           ECRYPTFS_KEY_LEN + ECRYPTFS_KEY_LEN + PASSWD_SALT_LEN + MAX_USERNAME_LEN,
            signature);
 
     /* Check if signature match */
@@ -532,6 +535,8 @@ void dump_crypto_header(struct crypto_header *header)
     memset(buffer, 0, sizeof(buffer));
     convert_to_hex_format(header->salt, buffer, PASSWD_SALT_LEN);
     LOGE("salt=%s", buffer);
+
+    LOGE("user=%s", header->username);
 
     memset(buffer, 0, sizeof(buffer));
     convert_to_hex_format(header->signature, buffer, SHA512_DIGEST_LENGTH);

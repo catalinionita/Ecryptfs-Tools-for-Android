@@ -18,7 +18,11 @@ git apply "$basepath/$version/vold/Vold-integration.patch" --directory=system/vo
 # Core integration
 git apply "$basepath/$version/core/Core-integration.patch" --directory=system/core/
 # Framework integration
-git apply "$basepath/$version/frameworks-base/MountManagerService-integration.patch" --directory=frameworks/base/
+if [ $version = "android-4.4_r1.2" ]; then
+    git apply "$basepath/$version/frameworks-base/MountManagerService-integration.patch" --directory=frameworks/base/
+else
+    git apply "$basepath/$version/frameworks-base/frameworks-base-integration.patch" --directory=frameworks/base/
+fi
 # Settings integration
 git apply "$basepath/$version/settings/Settings-integration.patch" --directory=packages/apps/Settings/
 # SeLinux policy integration

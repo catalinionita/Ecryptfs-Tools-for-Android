@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
                 printf("Incorect usage of create storage\n");
                 return -1;
             }
-            return EFS_create(argv[3], argv[4]);
+            return EFS_create(argv[3], 0, argv[4]); // TODO: get the actual user
         }
 
         if (strcmp(argv[2], "unlock") == 0) {

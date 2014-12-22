@@ -87,13 +87,13 @@ static int EFS_set_status(char *storage_path, int state)
  *
  * @return 0 on success, negative value on error
  */
-static int encrypt_storage(char *storage_path, char *passwd)
+static int encrypt_storage(char *storage_path, int user, char *passwd)
 {
     char private_dir_path[MAX_PATH_LENGTH];
     char key_storage_path[MAX_PATH_LENGTH];
     int ret = -1;
 
-    ret = generate_crypt_info(storage_path, passwd);
+    ret = generate_crypt_info(storage_path, user, passwd);
     if (ret < 0) {
         LOGE("Error generating crypto material for efs storage %s",
              storage_path);
@@ -194,7 +194,7 @@ int EFS_get_status(char *storage_path)
  *
  * @return 0 on success, negative value on error
  */
-int EFS_create(char *storage_path, char *passwd)
+int EFS_create(char *storage_path, int user, char *passwd)
 {
     char private_dir_path[MAX_PATH_LENGTH];
     int ret = -1;
@@ -233,7 +233,7 @@ int EFS_create(char *storage_path, char *passwd)
         return -1;
     }
 
-    ret = encrypt_storage(storage_path, passwd);
+    ret = encrypt_storage(storage_path, user, passwd);
     if (ret < 0) {
         LOGE("Error encrypting efs storage %s", storage_path);
         return ret;

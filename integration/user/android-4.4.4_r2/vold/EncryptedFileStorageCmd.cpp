@@ -65,7 +65,7 @@ int EncryptedFileStorageCmd::runCommand(SocketClient *cli, int argc, char **argv
             cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: efs create <storage_path> <passwd>", false);
             return 0;
         }
-        rc = EFS_create(argv[2],argv[3]);
+        rc = EFS_create(argv[2], 0, argv[3]);
     } else if (!strcmp(argv[1], "unlock")) {
         if (argc != 4) {
             cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: efs unlock <storage_path> <passwd>", false);
@@ -115,11 +115,11 @@ int EncryptedFileStorageCmd::runCommand(SocketClient *cli, int argc, char **argv
         }
         rc = android_encrypt_user_data(atoi(argv[2]), argv[3]);
     } else if (!strcmp(argv[1], "unlock_user_data")) {
-        if (argc != 4) {
+        if (argc != 5) {
             cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: efs unlock_user_data <userId> <password>", false);
             return 0;
         }
-        rc = android_unlock_user_data(atoi(argv[2]), argv[3]);
+        rc = android_unlock_user_data(atoi(argv[2]), atoi(argv[3]), argv[4]);
     }  else if (!strcmp(argv[1], "lock_user_data")) {
         if (argc != 3) {
             cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: efs lock_user_data <userId>", false);
@@ -150,6 +150,12 @@ int EncryptedFileStorageCmd::runCommand(SocketClient *cli, int argc, char **argv
             return 0;
         }
         rc = android_get_encrypted_user_status(atoi(argv[2]));
+    }   else if (!strcmp(argv[1], "restart_framework")) {
+        if (argc != 3) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: efs restart_framework", false);
+            return 0;
+        }
+        rc = android_restart_framework(atoi(argv[2]));
     }
     else {
         cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown efs-tools cmd", false);

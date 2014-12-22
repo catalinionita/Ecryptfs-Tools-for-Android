@@ -29,7 +29,7 @@ extern "C" {
 #endif
         /* Android encrypt user API */
         extern int android_encrypt_user_data(int userId, char *password);
-        extern int android_unlock_user_data(int user, char *password);
+        extern int android_unlock_user_data(int from_init, int user, char *password);
         extern int android_lock_user_data(int user);
         extern int android_change_user_data_password(int user, char *old_password,
                                              char *new_password);
@@ -37,6 +37,7 @@ extern "C" {
         extern int android_remove_user_encrypted_data(int user);
         extern int android_get_encrypted_user_status(int user);
         extern int android_check_primary_user_encrypted();
+        extern int android_restart_framework(int user);
 #ifdef __cplusplus
 }
 #endif

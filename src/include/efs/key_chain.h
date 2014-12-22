@@ -25,6 +25,7 @@
 #define ECRYPTFS_SIG_LEN SHA512_DIGEST_LENGTH
 #define KEY_TYPE "user"
 #define PGP_DIGEST_ALGO_SHA512   10
+#define MAX_USERNAME_LEN 256
 
 /* generic types for x86 to use with ecryptfs.h */
 typedef unsigned int u32;
@@ -39,6 +40,7 @@ struct crypto_header {
         unsigned char fefek[ECRYPTFS_KEY_LEN];
         unsigned char fnek[ECRYPTFS_KEY_LEN];
         unsigned char salt[PASSWD_SALT_LEN];
+        char username[MAX_USERNAME_LEN];
         unsigned char signature[SHA512_DIGEST_LENGTH];
         int stat;
 };
