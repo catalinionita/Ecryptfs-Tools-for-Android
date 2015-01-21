@@ -21,6 +21,8 @@ if [ $version != "android-5.0.0_r7" ]; then
 fi 
 # Framework integration
 case $version in
+    "android-5.0.0_r7" )
+        git apply "$basepath/$version/frameworks-base/MountManagerService-integration.patch" --directory=frameworks/base/ ;;
     "android-4.4_r1.2" )
         git apply "$basepath/$version/frameworks-base/MountManagerService-integration.patch" --directory=frameworks/base/ ;;
     "android-4.4.4_r2" )
@@ -32,3 +34,7 @@ if [ $version != "android-5.0.0_r7" ]; then
 fi
 # SeLinux policy integration
 git apply "$basepath/$version/sepolicy/EFS-SeLinux-Policy.patch" --directory=external/sepolicy/
+# EFSTest app
+if [ $version == "android-5.0.0_r7" ]; then
+    git apply "$basepath/$version/build/build.patch" --directory=build/
+fi

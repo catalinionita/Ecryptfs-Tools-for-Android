@@ -1,1 +1,61 @@
-0001-Integrate-EFS-with-vold.patch
+From 767add35f37393cc191cef03ed3a70dd90522289 Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Wed, 21 Jan 2015 15:42:19 +0200
+Subject: [PATCH] Integrate EFS-tools with vold
+
+---
+ Android.mk          | 3 +++
+ CommandListener.cpp | 2 ++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/Android.mk b/Android.mk
+index 1a1d28a..7712846 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -3,6 +3,7 @@ LOCAL_PATH:= $(call my-dir)
+ common_src_files := \
+ 	VolumeManager.cpp \
+ 	CommandListener.cpp \
++	EncryptedFileStorageCmd.cpp \
+ 	VoldCommand.cpp \
+ 	NetlinkManager.cpp \
+ 	NetlinkHandler.cpp \
+@@ -26,6 +27,7 @@ common_c_includes := \
+ 	external/stlport/stlport \
+ 	bionic \
+ 	external/scrypt/lib/crypto \
++	external/efs-tools/src/include \
+ 	frameworks/native/include \
+ 	system/security/keystore \
+ 	hardware/libhardware/include/hardware \
+@@ -43,6 +45,7 @@ common_shared_libraries := \
+ 	libext4_utils \
+ 	libf2fs_sparseblock \
+ 	libcrypto \
++	libefs \
+ 	libselinux \
+ 	libutils \
+ 	libhardware \
+diff --git a/CommandListener.cpp b/CommandListener.cpp
+index 8003095..bb1fc26 100644
+--- a/CommandListener.cpp
++++ b/CommandListener.cpp
+@@ -39,6 +39,7 @@
+ #include "Devmapper.h"
+ #include "cryptfs.h"
+ #include "fstrim.h"
++#include "EncryptedFileStorageCmd.h"
+ 
+ #define DUMP_ARGS 0
+ 
+@@ -51,6 +52,7 @@ CommandListener::CommandListener() :
+     registerCmd(new StorageCmd());
+     registerCmd(new CryptfsCmd());
+     registerCmd(new FstrimCmd());
++    registerCmd(new EncryptedFileStorageCmd());
+ }
+ 
+ #if DUMP_ARGS
+-- 
+1.9.1
+

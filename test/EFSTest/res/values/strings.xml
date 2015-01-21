@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">EFSTest</string>
+    <string name="action_settings">Settings</string>
+    
+    <string name="postest">Positive Testing</string>
+    <string name="negtest">Negative Testing</string>
+
+    <string name="create1">Create a libefs /data/data/new_folder container</string>
+    <string name="remove">Remove the libefs container</string>
+    <string name="unlock">Unlock the libefs /data/data/new_folder container</string>
+    <string name="lock">Lock the libefs /data/data/new_folder container</string>
+    <string name="change1">Change password for the libefs /data/data/new_folder container did not succeed - password is too short</string>
+    <string name="change2">Change password for the libefs /data/data/new_folder container form testold to testnew</string>
+    <string name="restore">Restore the libefs /data/data/new_folder container</string>
+    <string name="create2">Create a libefs /data/data/bla container did not succeed - password is too short</string>
+    <string name="create3">Create a libefs /../../data/data/bla container</string>
+    <string name="start">Start Test</string>
+
+</resources>

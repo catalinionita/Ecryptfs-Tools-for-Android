@@ -67,3 +67,6 @@ LOCAL_CFLAGS += -Wall
 LOCAL_SRC_FILES := src/main.c
 LOCAL_SHARED_LIBRARIES := libefs
 include $(BUILD_EXECUTABLE)
+
+include $(LOCAL_PATH)/test/Android.mk
+
