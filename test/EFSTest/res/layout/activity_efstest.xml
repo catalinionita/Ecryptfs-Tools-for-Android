@@ -20,79 +20,81 @@
             android:layout_alignParentEnd="true">
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceLarge"
-                android:text="@string/postest"
                 android:id="@+id/posTextView"
-                android:layout_alignParentStart="true"
-                android:layout_centerHorizontal="true" />
-
-            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceLarge"
-                android:text="@string/negtest"
+                android:layout_alignParentStart="false"
+                android:layout_alignParentTop="false"
+                android:layout_centerHorizontal="true"
+                android:text="@string/postest"
+                android:textAppearance="?android:attr/textAppearanceLarge" />
+
+            <TextView
                 android:id="@+id/negTextView2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="false"
+                android:layout_alignParentTop="false"
                 android:layout_below="@+id/textView"
-                android:layout_alignParentStart="true"
                 android:layout_centerHorizontal="true"
-                android:layout_marginTop="20dp" />
+                android:layout_marginTop="20dp"
+                android:text="@string/negtest"
+                android:textAppearance="?android:attr/textAppearanceLarge" />
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/create1"
                 android:id="@+id/textView2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentStart="true"
                 android:layout_below="@+id/posTextView"
-                android:layout_alignParentStart="true"
-                android:layout_centerHorizontal="true"
-                android:layout_marginTop="10dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/remove"
-                android:id="@+id/textView3"
                 android:layout_marginTop="10dp"
-                android:layout_below="@+id/textView2"
-                android:layout_alignParentStart="true"
-                android:layout_centerHorizontal="true" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
                 android:text="@string/create1"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
+
+            <TextView
+                android:id="@+id/textView3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentStart="true"
+                android:layout_below="@+id/textView2"
+                android:layout_marginTop="10dp"
+                android:text="@string/remove"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
+
+            <TextView
                 android:id="@+id/textView4"
-                android:layout_marginTop="10dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentStart="true"
                 android:layout_below="@+id/textView3"
-                android:layout_alignParentStart="true"
-                android:layout_centerHorizontal="true" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/unlock"
-                android:id="@+id/textView6"
-                android:layout_below="@+id/textView4"
-                android:layout_alignParentStart="true"
-                android:layout_centerHorizontal="true"
-                android:layout_marginTop="10dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/lock"
-                android:id="@+id/textView7"
                 android:layout_marginTop="10dp"
+                android:text="@string/create1"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
+
+            <TextView
+                android:id="@+id/textView6"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentStart="true"
+                android:layout_below="@+id/textView4"
+                android:layout_marginTop="10dp"
+                android:text="@string/unlock"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
+
+            <TextView
+                android:id="@+id/textView7"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentStart="true"
                 android:layout_below="@+id/textView6"
-                android:layout_centerHorizontal="true"
-                android:layout_alignParentStart="true" />
+                android:layout_marginTop="10dp"
+                android:text="@string/lock"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -119,26 +121,26 @@
                 android:layout_marginTop="10dp" />
 
             <TextView
+                android:id="@+id/textView10"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/unlock"
-                android:id="@+id/textView10"
-                android:layout_marginTop="10dp"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentStart="true"
                 android:layout_below="@+id/textView9"
-                android:layout_centerHorizontal="true"
-                android:layout_alignParentStart="true" />
+                android:layout_marginTop="10dp"
+                android:text="@string/unlock"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
 
             <TextView
+                android:id="@+id/textView11"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/lock"
-                android:id="@+id/textView11"
-                android:layout_marginTop="10dp"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentStart="true"
                 android:layout_below="@+id/textView10"
-                android:layout_centerHorizontal="true"
-                android:layout_alignParentStart="true" />
+                android:layout_marginTop="10dp"
+                android:text="@string/lock"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -153,26 +155,26 @@
                 android:layout_alignEnd="@+id/textView10" />
 
             <TextView
+                android:id="@+id/textView13"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/create3"
-                android:id="@+id/textView13"
-                android:layout_below="@+id/textView12"
-                android:layout_centerHorizontal="true"
+                android:layout_alignParentRight="true"
                 android:layout_alignParentStart="true"
-                android:layout_marginTop="10dp" />
+                android:layout_below="@+id/textView12"
+                android:layout_marginTop="10dp"
+                android:text="@string/create3"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
 
             <TextView
+                android:id="@+id/textView14"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/remove"
-                android:id="@+id/textView14"
-                android:layout_below="@+id/textView13"
-                android:layout_centerHorizontal="true"
+                android:layout_alignParentRight="true"
                 android:layout_alignParentStart="true"
-                android:layout_marginTop="10dp" />
+                android:layout_below="@+id/textView13"
+                android:layout_marginTop="10dp"
+                android:text="@string/remove"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
 
             <Button
                 style="?android:attr/buttonStyleSmall"
@@ -187,15 +189,16 @@
                 android:layout_below="@+id/textView14" />
 
             <TextView
+                android:id="@+id/textView"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceSmall"
-                android:text="@string/restore"
-                android:id="@+id/textView"
-                android:layout_below="@+id/textView11"
-                android:layout_centerHorizontal="true"
+                android:layout_alignParentRight="true"
                 android:layout_alignParentStart="true"
-                android:layout_marginTop="10dp" />
+                android:layout_below="@+id/textView11"
+                android:layout_marginTop="10dp"
+                android:text="@string/restore"
+                android:textAppearance="?android:attr/textAppearanceSmall" />
+
         </RelativeLayout>
     </ScrollView>
 

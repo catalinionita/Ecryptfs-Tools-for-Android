@@ -1,0 +1,69 @@
+From 5b61b96baecc087df68e9c1f9b7eebdd4cce93f7 Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Mon, 23 Mar 2015 17:10:56 +0200
+Subject: [PATCH] Add EFSService
+
+---
+ api/current.txt                                    | 18 ++++++++++++++++++
+ services/java/com/android/server/SystemServer.java |  9 +++++++++
+ 2 files changed, 27 insertions(+)
+
+diff --git a/api/current.txt b/api/current.txt
+index fe0c209..6bf244b 100644
+--- a/api/current.txt
++++ b/api/current.txt
+@@ -22368,6 +22368,24 @@ package android.os {
+ 
+ package android.os.storage {
+ 
++  public abstract interface IEFSService implements android.os.IInterface {
++    method public abstract int changePasswordEfsStorage(java.lang.String, java.lang.String, java.lang.String) throws android.os.RemoteException;
++    method public abstract int createEfsStorage(java.lang.String, java.lang.String) throws android.os.RemoteException;
++    method public abstract int getEfsEncryptionProgress(java.lang.String) throws android.os.RemoteException;
++    method public abstract int getEfsStorageStat(java.lang.String) throws android.os.RemoteException;
++    method public abstract int lockEfsStorage(java.lang.String) throws android.os.RemoteException;
++    method public abstract int recoverDataAndRemoveEfsStorage(java.lang.String, java.lang.String) throws android.os.RemoteException;
++    method public abstract int removeEfsStorage(java.lang.String) throws android.os.RemoteException;
++    method public abstract int unlockEfsStorage(java.lang.String, java.lang.String) throws android.os.RemoteException;
++  }
++
++  public static abstract class IEFSService.Stub extends android.os.Binder implements android.os.storage.IEFSService {
++    ctor public IEFSService.Stub();
++    method public android.os.IBinder asBinder();
++    method public static android.os.storage.IEFSService asInterface(android.os.IBinder);
++    method public boolean onTransact(int, android.os.Parcel, android.os.Parcel, int) throws android.os.RemoteException;
++  }
++
+   public abstract class OnObbStateChangeListener {
+     ctor public OnObbStateChangeListener();
+     method public void onObbStateChange(java.lang.String, int);
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+index 22f6ca4..8564364 100644
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -98,6 +98,8 @@ import com.android.server.wallpaper.WallpaperManagerService;
+ import com.android.server.webkit.WebViewUpdateService;
+ import com.android.server.wm.WindowManagerService;
+ 
++import com.android.server.EFSService;
++
+ import dalvik.system.VMRuntime;
+ 
+ import java.io.File;
+@@ -946,6 +948,13 @@ public final class SystemServer {
+ 
+             }
+ 
++            try {
++                Slog.i(TAG, "EFSService");
++                ServiceManager.addService("efsservice", new EFSService(context));
++            } catch (Throwable e) {
++                reportWtf("starting EFSService", e);
++            }
++
+             mSystemServiceManager.startService(LauncherAppsService.class);
+         }
+ 
+-- 
+1.9.1
+
