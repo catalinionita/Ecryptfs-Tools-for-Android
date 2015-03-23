@@ -68,5 +68,21 @@ LOCAL_SRC_FILES := src/main.c
 LOCAL_SHARED_LIBRARIES := libefs
 include $(BUILD_EXECUTABLE)
 
-include $(LOCAL_PATH)/test/Android.mk
+# efs native service
+include $(CLEAR_VARS)
+LOCAL_MODULE := efs-server
+LOCAL_MODULE_TAGS := eng
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
+LOCAL_CPPFLAGS += -Wall
+LOCAL_SRC_FILES := \
+    src/efs_server.cpp \
+    src/CommandListener.cpp
+LOCAL_SHARED_LIBRARIES := \
+    libefs \
+	libcutils \
+	liblog \
+    libsysutils
+include $(BUILD_EXECUTABLE)
+
+include $(wildcard $(LOCAL_PATH)/*/*/Android.mk)
 

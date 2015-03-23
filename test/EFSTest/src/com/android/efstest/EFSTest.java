@@ -5,7 +5,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ServiceManager;
-import android.os.storage.IMountService;
+import android.os.storage.IEFSService;
 import android.os.SELinux;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -31,7 +31,7 @@ public class EFSTest extends Activity {
     private final String OLD_PASS = "testold";
     private final String NEW_PASS = "testnew";
     
-    private IMountService ms;
+    private IEFSService ms;
     
     private void createFile(String path, String content) {
         try (FileOutputStream outputStream = new FileOutputStream(path)) {
@@ -91,18 +91,24 @@ public class EFSTest extends Activity {
                 delete(f);
                 delete(ef);
             
-                if (f.mkdirs() == false)
+                if (f.mkdirs() == false) {
+                    Log.e(TAG, "Failed to create dirs");
                     return false;
+                }
                     
                 createFile(path + "/a.txt", "aaa\n");
                 createFile(path + "/b.txt", "bbb\n");
                 createFile(path + "/c.txt", "ccc\n");
             
-                if (ms.createEfsStorage(path, pass) != 0)
+                if (ms.createEfsStorage(path, pass) != 0) {
+                    Log.e(TAG, "createEfsStorage failed");
                     return false;
+                }
                     
-                if ((ef.exists() && ef.isDirectory()) == false)
+                if ((ef.exists() && ef.isDirectory()) == false) {
+                    Log.e(TAG, "Storage does not exist");
                     return false;
+                }
 
                 return true;
                  
@@ -313,9 +319,9 @@ public class EFSTest extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_efstest);
         
-        IBinder service = ServiceManager.getService("mount");
+        IBinder service = ServiceManager.getService("efsservice");
         if (service != null)
-            ms = IMountService.Stub.asInterface(service);
+            ms = IEFSService.Stub.asInterface(service);
 
         STORAGE_PATH = getFilesDir() + STORAGE_PATH;
         ENCRYPTED_STORAGE_PATH = getFilesDir() + ENCRYPTED_STORAGE_PATH;
@@ -357,7 +363,6 @@ public class EFSTest extends Activity {
                 for (Map.Entry<Tester, TextView> en : test2view.entrySet()) {
                     en.getValue().setTextColor(en.getKey().test() ? Color.GREEN : Color.RED);
                 }
-
             }
         });
     }
