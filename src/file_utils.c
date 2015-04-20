@@ -352,6 +352,12 @@ static int create_dirs(file_info ** dir_list, const char *src_path, const char *
             free(path);
             return ret;
         }
+        ret = chmod(path, iter->st.st_mode);
+        if (ret < 0) {
+            LOGE("chmod %s fail\n", path);
+            free(path);
+            return ret;
+        }
         time.actime = iter->st.st_atime;
         time.modtime = iter->st.st_mtime;
         ret = utime(path, &time);
@@ -386,6 +392,13 @@ static int create_dirs(file_info ** dir_list, const char *src_path, const char *
     ret = chown(path, iter->st.st_uid, iter->st.st_gid);
     if (ret < 0) {
         LOGE("chown %s fail\n", path);
+        free(path);
+        return ret;
+    }
+
+    ret = chmod(path, iter->st.st_mode);
+    if (ret < 0) {
+        LOGE("chmod %s fail\n", path);
         free(path);
         return ret;
     }
@@ -502,6 +515,12 @@ static int copy_file(const char * property, const char *src_path, const char *ds
         return ret;
     }
 
+    ret = chmod(dst_path, st->st_mode);
+    if (ret < 0) {
+        LOGE("chmod %s fail\n", dst_path);
+        return ret;
+    }
+
     /* Save access times */
     time.actime = st->st_atime;
     time.modtime = st->st_mtime;
@@ -606,6 +625,7 @@ static int copy_files(file_info ** file_list, const char *src_path, const char *
                 free(linkname);
                 return ret;
             }
+
             free(linkname);
             iter = iter->next;
             continue;

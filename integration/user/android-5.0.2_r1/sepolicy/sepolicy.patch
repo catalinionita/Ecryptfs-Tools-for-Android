@@ -1,0 +1,216 @@
+From e7eed9a6c714e2bab1daedae24fc5e13af0049fe Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Mon, 23 Mar 2015 17:16:43 +0200
+Subject: [PATCH] Add EFSServer rules
+
+---
+ domain.te         | 10 +++++-----
+ file.te           |  4 ++++
+ file_contexts     |  2 ++
+ fs_use            |  2 ++
+ installd.te       |  5 +++++
+ keystore.te       |  8 ++++----
+ property_contexts |  1 +
+ system_server.te  |  3 +++
+ te_macros         | 11 +++++++++++
+ 9 files changed, 37 insertions(+), 9 deletions(-)
+
+diff --git a/domain.te b/domain.te
+index cb1c4f3..a806c36 100644
+--- a/domain.te
++++ b/domain.te
+@@ -171,10 +171,10 @@ neverallow { domain -unconfineddomain -recovery } unlabeled:dir_file_class_set c
+ 
+ # Limit ability to ptrace or read sensitive /proc/pid files of processes
+ # with other UIDs to these whitelisted domains.
+-neverallow { domain -debuggerd -vold -dumpstate -system_server } self:capability sys_ptrace;
++neverallow { domain -debuggerd -vold -efs-server -dumpstate -system_server } self:capability sys_ptrace;
+ 
+ # Limit device node creation to these whitelisted domains.
+-neverallow { domain -kernel -init -recovery -ueventd -watchdogd -healthd -vold -uncrypt } self:capability mknod;
++neverallow { domain -kernel -init -recovery -ueventd -watchdogd -healthd -vold -efs-server -uncrypt } self:capability mknod;
+ 
+ # Limit raw I/O to these whitelisted domains.
+ neverallow { domain -kernel -init -recovery -ueventd -watchdogd -healthd -vold -uncrypt -tee } self:capability sys_rawio;
+@@ -250,7 +250,7 @@ neverallow domain init:binder call;
+ 
+ # Don't allow raw read/write/open access to block_device
+ # Rather force a relabel to a more specific type
+-neverallow { domain -kernel -init -recovery -vold -uncrypt -install_recovery } block_device:blk_file { open read write };
++neverallow { domain -kernel -init -recovery -vold -efs-server -uncrypt -install_recovery } block_device:blk_file { open read write };
+ 
+ # Don't allow raw read/write/open access to generic devices.
+ # Rather force a relabel to a more specific type.
+@@ -260,7 +260,7 @@ neverallow { domain -unconfineddomain -ueventd -recovery } device:chr_file { ope
+ # Limit what domains can mount filesystems or change their mount flags.
+ # sdcard_type / vfat is exempt as a larger set of domains need
+ # this capability, including device-specific domains.
+-neverallow { domain -kernel -init -recovery -vold -zygote } { fs_type -sdcard_type }:filesystem { mount remount relabelfrom relabelto };
++neverallow { domain -kernel -init -recovery -vold -efs-server -zygote } { fs_type -sdcard_type }:filesystem { mount remount relabelfrom relabelto };
+ 
+ #
+ # Assert that, to the extent possible, we're not loading executable content from
+@@ -307,6 +307,6 @@ neverallow { domain -recovery } contextmount_type:dir_file_class_set
+ # system_app_service rather than the generic type.
+ # New service_types are defined in service.te and new mappings
+ # from service name to service_type are defined in service_contexts.
+-neverallow domain default_android_service:service_manager add;
++#neverallow domain default_android_service:service_manager add;
+ 
+ neverallow { domain -init -recovery -system_server } frp_block_device:blk_file rw_file_perms;
+diff --git a/file.te b/file.te
+index 112406b..32ce08e 100644
+--- a/file.te
++++ b/file.te
+@@ -38,6 +38,7 @@ type pstorefs, fs_type;
+ type functionfs, fs_type;
+ type oemfs, fs_type, contextmount_type;
+ type usbfs, fs_type;
++type ecryptfs, fs_type;
+ 
+ # File types
+ type unlabeled, file_type;
+@@ -130,6 +131,7 @@ type adbd_socket, file_type;
+ type bluetooth_socket, file_type;
+ type dnsproxyd_socket, file_type, mlstrustedobject;
+ type dumpstate_socket, file_type;
++type efs-server_socket, file_type;
+ type fwmarkd_socket, file_type, mlstrustedobject;
+ type gps_socket, file_type;
+ type installd_socket, file_type;
+@@ -162,6 +164,8 @@ allow file_type labeledfs:filesystem associate;
+ allow file_type tmpfs:filesystem associate;
+ allow file_type rootfs:filesystem associate;
+ allow dev_type tmpfs:filesystem associate;
++allow file_type ecryptfs:filesystem associate;
++allow dev_type ecryptfs:filesystem associate;
+ 
+ # It's a bug to assign the file_type attribute and fs_type attribute
+ # to any type. Do not allow it.
+diff --git a/file_contexts b/file_contexts
+index ec91425..9dca787 100644
+--- a/file_contexts
++++ b/file_contexts
+@@ -79,6 +79,7 @@
+ /dev/socket/adbd	u:object_r:adbd_socket:s0
+ /dev/socket/dnsproxyd	u:object_r:dnsproxyd_socket:s0
+ /dev/socket/dumpstate	u:object_r:dumpstate_socket:s0
++/dev/socket/efs-server  u:object_r:efs-server_socket:s0
+ /dev/socket/fwmarkd	u:object_r:fwmarkd_socket:s0
+ /dev/socket/gps		u:object_r:gps_socket:s0
+ /dev/socket/installd	u:object_r:installd_socket:s0
+@@ -133,6 +134,7 @@
+ /system/bin/drmserver	u:object_r:drmserver_exec:s0
+ /system/bin/dumpstate   u:object_r:dumpstate_exec:s0
+ /system/bin/vold	u:object_r:vold_exec:s0
++/system/bin/efs-server  u:object_r:efs-server_exec:s0
+ /system/bin/netd	u:object_r:netd_exec:s0
+ /system/bin/rild	u:object_r:rild_exec:s0
+ /system/bin/mediaserver	u:object_r:mediaserver_exec:s0
+diff --git a/fs_use b/fs_use
+index edbcf58..3a9cda1 100644
+--- a/fs_use
++++ b/fs_use
+@@ -17,6 +17,8 @@ fs_use_task sockfs u:object_r:sockfs:s0;
+ fs_use_trans devpts u:object_r:devpts:s0;
+ fs_use_trans tmpfs u:object_r:tmpfs:s0;
+ fs_use_trans devtmpfs u:object_r:device:s0;
++fs_use_trans ecryptfs u:object_r:ecryptfs:s0;
++fs_use_trans devecryptfs u:object_r:device:s0;
+ fs_use_trans shm u:object_r:shm:s0;
+ fs_use_trans mqueue u:object_r:mqueue:s0;
+ 
+diff --git a/installd.te b/installd.te
+index 6b1b2b8..1920adb 100644
+--- a/installd.te
++++ b/installd.te
+@@ -30,6 +30,11 @@ allow installd asec_image_file:file getattr;
+ allow installd system_data_file:dir create_dir_perms;
+ allow installd system_data_file:lnk_file { create setattr unlink };
+ 
++# Allow installd to work with an ecryptfs mount point
++allow installd ecryptfs:dir { setattr create rmdir rw_dir_perms };
++allow installd ecryptfs:file { setattr create rw_file_perms };
++allow installd ecryptfs:lnk_file { create setattr getattr };
++
+ # Upgrade /data/media for multi-user if necessary.
+ allow installd media_rw_data_file:dir create_dir_perms;
+ allow installd media_rw_data_file:file { getattr unlink };
+diff --git a/keystore.te b/keystore.te
+index afa701c..b719268 100644
+--- a/keystore.te
++++ b/keystore.te
+@@ -18,11 +18,11 @@ allow keystore tee:unix_stream_socket connectto;
+ ### Protect ourself from others
+ ###
+ 
+-neverallow { domain -keystore } keystore_data_file:dir ~{ open create read getattr setattr search relabelto };
+-neverallow { domain -keystore } keystore_data_file:notdevfile_class_set ~{ relabelto getattr };
++neverallow { domain -keystore -efs-server } keystore_data_file:dir ~{ open create read getattr setattr search relabelto };
++neverallow { domain -keystore -efs-server } keystore_data_file:notdevfile_class_set ~{ relabelto getattr };
+ 
+-neverallow { domain -keystore -init -kernel -recovery } keystore_data_file:dir *;
+-neverallow { domain -keystore -init -kernel -recovery } keystore_data_file:notdevfile_class_set *;
++neverallow { domain -keystore -init -kernel -recovery -efs-server } keystore_data_file:dir *;
++neverallow { domain -keystore -init -kernel -recovery -efs-server } keystore_data_file:notdevfile_class_set *;
+ 
+ neverallow domain keystore:process ptrace;
+ 
+diff --git a/property_contexts b/property_contexts
+index f89c432..02a450c 100644
+--- a/property_contexts
++++ b/property_contexts
+@@ -48,6 +48,7 @@ selinux.                u:object_r:security_prop:s0
+ # data partition encryption properties
+ vold.                   u:object_r:vold_prop:s0
+ crypto.                 u:object_r:vold_prop:s0
++efs.                    u:object_r:vold_prop:s0
+ 
+ # ctl properties
+ ctl.bootanim            u:object_r:ctl_bootanim_prop:s0
+diff --git a/system_server.te b/system_server.te
+index 5786c2e..cbce1b4 100644
+--- a/system_server.te
++++ b/system_server.te
+@@ -118,6 +118,7 @@ unix_socket_connect(system_server, lmkd, lmkd)
+ unix_socket_connect(system_server, mtpd, mtp)
+ unix_socket_connect(system_server, netd, netd)
+ unix_socket_connect(system_server, vold, vold)
++unix_socket_connect(system_server, efs-server, efs-server)
+ unix_socket_connect(system_server, zygote, zygote)
+ unix_socket_connect(system_server, gps, gpsd)
+ unix_socket_connect(system_server, racoon, racoon)
+@@ -399,6 +400,8 @@ allow system_server cgroup:dir { remove_name rmdir };
+ # /oem access
+ r_dir_file(system_server, oemfs)
+ 
++allow system_server default_android_service:service_manager add;
++
+ ###
+ ### Neverallow rules
+ ###
+diff --git a/te_macros b/te_macros
+index 7c1f6e5..07eac4a 100644
+--- a/te_macros
++++ b/te_macros
+@@ -112,6 +112,17 @@ allow $1 $1_tmpfs:file execute;
+ ')
+ 
+ #####################################
++# ecryptfs_domain(domain)
++# Define and allow access to a unique type for
++# this domain when creating ecryptfs
++define(`ecryptfs_domain', `
++type $1_ecryptfs, file_type;
++type_transition $1 ecryptfs:file $1_ecryptfs;
++# Map with PROT_EXEC.
++allow $1 $1_ecryptfs:file { read execute execmod };
++')
++
++#####################################
+ # net_domain(domain)
+ # Allow a base set of permissions required for network access.
+ define(`net_domain', `
+-- 
+1.9.1
+

@@ -1,0 +1,139 @@
+# volume manager
+type efs-server, domain;
+type efs-server_exec, exec_type, file_type;
+
+init_daemon_domain(efs-server)
+
+typeattribute efs-server mlstrustedsubject;
+allow efs-server system_file:file x_file_perms;
+allow efs-server block_device:dir create_dir_perms;
+allow efs-server block_device:blk_file create_file_perms;
+allow efs-server device:dir write;
+allow efs-server devpts:chr_file rw_file_perms;
+allow efs-server rootfs:dir mounton;
+allow efs-server sdcard_type:dir mounton;
+allow efs-server sdcard_type:filesystem { mount remount unmount };
+allow efs-server sdcard_type:dir create_dir_perms;
+allow efs-server sdcard_type:file create_file_perms;
+allow efs-server tmpfs:filesystem { mount unmount };
+allow efs-server tmpfs:dir create_dir_perms;
+allow efs-server tmpfs:dir mounton;
+allow efs-server self:capability { net_admin dac_override mknod sys_admin chown fowner fsetid };
+allow efs-server self:netlink_kobject_uevent_socket create_socket_perms;
+allow efs-server app_data_file:dir search;
+allow efs-server app_data_file:file rw_file_perms;
+allow efs-server loop_device:blk_file rw_file_perms;
+allow efs-server dm_device:chr_file rw_file_perms;
+# For efs-server Process::killProcessesWithOpenFiles function.
+allow efs-server domain:dir r_dir_perms;
+allow efs-server domain:{ file lnk_file } r_file_perms;
+allow efs-server domain:process { signal sigkill };
+allow efs-server self:capability { sys_ptrace kill };
+
+# For blkid
+allow efs-server shell_exec:file rx_file_perms;
+
+# XXX Label sysfs files with a specific type?
+allow efs-server sysfs:file rw_file_perms;
+
+write_klog(efs-server)
+
+# Log fsck results
+allow efs-server fscklogs:dir rw_dir_perms;
+allow efs-server fscklogs:file create_file_perms;
+
+#
+# Rules to support encrypted fs support.
+#
+
+# Set property.
+unix_socket_connect(efs-server, property, init)
+
+# Unmount and mount the fs.
+allow efs-server labeledfs:filesystem { mount unmount remount };
+
+# Access /efs-server/userdata_footer.
+# XXX Split into a separate type?
+allow efs-server efs_file:file rw_file_perms;
+
+# Create and mount on /data/tmp_mnt.
+allow efs-server system_data_file:dir { create rw_dir_perms mounton };
+
+# Set scheduling policy of kernel processes
+allow efs-server kernel:process setsched;
+
+# ASEC
+allow efs-server asec_image_file:file create_file_perms;
+allow efs-server asec_image_file:dir rw_dir_perms;
+security_access_policy(efs-server)
+allow efs-server asec_apk_file:dir { rw_dir_perms setattr relabelfrom relabelto };
+allow efs-server asec_public_file:dir { relabelto setattr };
+allow efs-server asec_apk_file:file { r_file_perms setattr relabelfrom relabelto };
+allow efs-server asec_public_file:file { relabelto setattr };
+# restorecon files in asec containers created on 4.2 or earlier.
+allow efs-server unlabeled:dir { r_dir_perms setattr relabelfrom };
+allow efs-server unlabeled:file { r_file_perms setattr relabelfrom };
+
+#
+# Rules to support encryption of primary user using EFS
+#
+# Let efs-server store the ecryptfs headers in /data/misc/keystore/
+allow efs-server keystore_data_file:dir { w_dir_perms };
+allow efs-server keystore_data_file:file { create_file_perms rw_file_perms };
+# Let efs-server mount ecryptfs file system
+allow efs-server ecryptfs:filesystem { mount remount unmount };
+# Let efs-server use the kernel keyring for ecryptfs
+allow efs-server self:key { write search };
+# Let efs-server set ecryptfs mountpoint attr
+# Allow efs-server to read files, dirs and links for encryption
+allow efs-server platform_app_data_file:dir { rmdir remove_name write read getattr open search };
+allow efs-server platform_app_data_file:file { getattr r_file_perms unlink };
+allow efs-server shell_data_file:dir { getattr r_dir_perms write remove_name rmdir};
+allow efs-server shell_data_file:file { r_file_perms };
+allow efs-server nfc_data_file:dir { r_dir_perms write remove_name rmdir};
+allow efs-server nfc_data_file:file { r_file_perms unlink };
+allow efs-server system_data_file:dir { setattr rw_dir_perms rmdir };
+allow efs-server system_data_file:file rw_file_perms;
+allow efs-server system_data_file:lnk_file { setattr getattr create unlink};
+allow efs-server download_file:dir { getattr r_dir_perms rmdir };
+allow efs-server download_file:file { r_file_perms };
+allow efs-server radio_data_file:dir { r_dir_perms write remove_name rmdir};
+allow efs-server radio_data_file:file { r_file_perms unlink };
+allow efs-server bluetooth_data_file:dir { rw_dir_perms remove_name rmdir};
+allow efs-server bluetooth_data_file:file { r_file_perms };
+allow efs-server ecryptfs:dir { setattr create rmdir rw_dir_perms };
+allow efs-server ecryptfs:file { setattr create rw_file_perms };
+allow efs-server ecryptfs:lnk_file { create setattr getattr};
+allow efs-server proc:file write;
+allow efs-server self:capability sys_boot;
+allow efs-server init_tmpfs:file { open read };
+
+# Required for decryption
+allow efs-server unlabeled:dir mounton;
+allow efs-server platform_app_data_file:dir write;
+allow efs-server shell_data_file:dir write;
+allow efs-server nfc_data_file:dir write;
+allow efs-server download_file:dir write;
+allow efs-server radio_data_file:dir write;
+allow efs-server bluetooth_data_file:dir write;
+allow efs-server ecryptfs:lnk_file read;
+
+# Handle wake locks (used for device encryption)
+wakelock_use(efs-server)
+
+# talk to batteryservice
+binder_use(efs-server)
+binder_call(efs-server, healthd)
+
+# talk to keymaster
+allow efs-server tee_device:chr_file rw_file_perms;
+
+#Added from audit
+#============= ecryptfs ==============
+allow ecryptfs labeledfs:filesystem associate;
+
+##============= efs-server ==============
+allow efs-server app_data_file:dir { create add_name setattr mounton };
+allow efs-server app_data_file:file { relabelfrom relabelto create setattr };
+allow efs-server ecryptfs:file { relabelfrom relabelto };
+
