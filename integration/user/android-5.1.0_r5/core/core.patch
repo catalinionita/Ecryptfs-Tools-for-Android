@@ -1,0 +1,27 @@
+From e914777c11368f71d346994dc6a410f226ef75a8 Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Mon, 23 Mar 2015 16:46:57 +0200
+Subject: [PATCH] Add EFS service to init
+
+---
+ rootdir/init.rc | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/rootdir/init.rc b/rootdir/init.rc
+index 8ba7c10..1fbae31 100644
+--- a/rootdir/init.rc
++++ b/rootdir/init.rc
+@@ -532,6 +532,10 @@ service vold /system/bin/vold
+     socket vold stream 0660 root mount
+     ioprio be 2
+ 
++service efs-server /system/bin/efs-server
++    class core
++    socket efs-server stream 0660 root system
++
+ service netd /system/bin/netd
+     class main
+     socket netd stream 0660 root system
+-- 
+1.9.1
+

@@ -1,0 +1,24 @@
+From 9ab580fe9822b0c68cfae66458b97c4e7abbee3d Mon Sep 17 00:00:00 2001
+From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
+Date: Wed, 21 Jan 2015 15:08:02 +0200
+Subject: [PATCH] Add EFSTest app
+
+---
+ target/product/core.mk | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/target/product/core.mk b/target/product/core.mk
+index 876a536..6a1dd32 100644
+--- a/target/product/core.mk
++++ b/target/product/core.mk
+@@ -31,6 +31,7 @@ PRODUCT_PACKAGES += \
+     DeskClock \
+     DocumentsUI \
+     DownloadProviderUi \
++    EFSTest \
+     Email \
+     Exchange2 \
+     ExternalStorageProvider \
+-- 
+1.9.1
+
