@@ -20,7 +20,17 @@
 source smoke_with_fun.sh
 #Test suite
 #Positive testing
-echo 'Positive testing'
+res=`adb shell 'cat proc/kallsyms | grep -c ecryptfs'`
+res=${res:0:1}
+if [ "$res" -eq 0 ]
+then
+   echo "Ecryptfs module is not present. Please use a kernel with ecrypfs module active."
+   exit 1;
+else
+   echo "Ecryptfs kernel module detected. Proceed with test sequence."
+fi
+
+echo 'Starting secure containers test:'
 clean $STORAGE_PATH $ENCRYPTED_STORAGE_PATH
 setup $STORAGE_PATH
 create_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
@@ -38,7 +48,6 @@ lock_storage $STORAGE_PATH
 restore_storage $STORAGE_PATH $NEW_PASS
 #############
 #Negative testing
-echo "Negative tests"
 clean "/data/data/bla" "/data/data/.bla"
 setup "/data/data/bla"
 #Password too short
