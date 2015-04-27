@@ -28,14 +28,12 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libefs
 LOCAL_MODULE_TAGS := eng
 LOCAL_SRC_FILES:= \
-	src/efs.c \
-	src/android_user_encryption.c \
-	src/key_chain.c \
-	src/file_utils.c \
-	src/mount_utils.c \
-	src/process.c \
-	src/crypto.c \
-	src/key_store.c
+	src/lib/efs/efs.c \
+	src/lib/efs/key_chain.c \
+	src/lib/efs/file_utils.c \
+	src/lib/efs/mount_utils.c \
+	src/lib/efs/crypto.c \
+	src/lib/efs/key_store.c
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/src/include \
 	$(LOCAL_PATH)/linux_headers/include \
@@ -44,7 +42,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libcrypto \
 	libcutils \
 	liblog \
-	libhardware_legacy \
 	libselinux
 LOCAL_CFLAGS += -Wall
 include $(BUILD_SHARED_LIBRARY)
@@ -53,19 +50,48 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE := libefs_init
 LOCAL_MODULE_TAGS := eng
-LOCAL_SRC_FILES += src/init.c
+LOCAL_SRC_FILES += src/lib/init/init.c
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
 LOCAL_CFLAGS += -Wall
 include $(BUILD_STATIC_LIBRARY)
 
-# libefs testing tool
+# custom demo lib for full user data encryption
+include $(CLEAR_VARS)
+LOCAL_MODULE := libUserEncryption
+LOCAL_MODULE_TAGS := eng
+LOCAL_SRC_FILES:= \
+	src/lib/user_data_encryption/android_user_encryption.c \
+	src/lib/user_data_encryption/process.c
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/src/include \
+	$(LOCAL_PATH)/linux_headers/include \
+	external/openssl/include
+LOCAL_SHARED_LIBRARIES := \
+	libcutils \
+	liblog \
+	libhardware_legacy \
+	libefs
+LOCAL_CFLAGS += -Wall
+include $(BUILD_SHARED_LIBRARY)
+
+# library testing tool
 include $(CLEAR_VARS)
 LOCAL_MODULE:= efs-tools
 LOCAL_MODULE_TAGS := eng
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
 LOCAL_CFLAGS += -Wall
-LOCAL_SRC_FILES := src/main.c
+LOCAL_SRC_FILES := src/tools/efs-tools.c
 LOCAL_SHARED_LIBRARIES := libefs
+include $(BUILD_EXECUTABLE)
+
+# native service testing tool
+include $(CLEAR_VARS)
+LOCAL_MODULE:= edc
+LOCAL_MODULE_TAGS := eng
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
+LOCAL_CFLAGS += -Wall
+LOCAL_SRC_FILES := src/tools/edc.c
+LOCAL_SHARED_LIBRARIES := libcutils
 include $(BUILD_EXECUTABLE)
 
 # efs native service
@@ -75,13 +101,14 @@ LOCAL_MODULE_TAGS := eng
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/src/include
 LOCAL_CPPFLAGS += -Wall
 LOCAL_SRC_FILES := \
-    src/efs_server.cpp \
-    src/CommandListener.cpp
+    src/service/EfsServer.cpp \
+    src/service/CommandListener.cpp
 LOCAL_SHARED_LIBRARIES := \
     libefs \
-	libcutils \
-	liblog \
-    libsysutils
+    libcutils \
+    liblog \
+    libsysutils \
+    libUserEncryption
 include $(BUILD_EXECUTABLE)
 
 include $(wildcard $(LOCAL_PATH)/*/*/Android.mk)
