@@ -17,9 +17,6 @@
 # * Author: Razvan-Costin Ionescu <razvanx.ionescu@intel.com>
 # */
 
-source smoke_with_fun.sh
-#Test suite
-#Positive testing
 res=`adb shell 'cat proc/kallsyms | grep -c ecryptfs'`
 res=${res:0:1}
 if [ "$res" -eq 0 ]
@@ -31,6 +28,7 @@ else
 fi
 
 echo 'Starting secure containers test:'
+source test_functions.sh
 clean $STORAGE_PATH $ENCRYPTED_STORAGE_PATH
 setup $STORAGE_PATH
 create_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
@@ -46,11 +44,28 @@ change_passwd $STORAGE_PATH $OLD_PASS $NEW_PASS
 unlock_storage $STORAGE_PATH $NEW_PASS
 lock_storage $STORAGE_PATH
 restore_storage $STORAGE_PATH $NEW_PASS
-#############
-#Negative testing
 clean "/data/data/bla" "/data/data/.bla"
 setup "/data/data/bla"
-#Password too short
 create_storage "/data/data/bla" bla "/data/data/.bla"
 create_storage "/../../data/data/bla" test1 "/./../data/data/.bla"
 remove_storage "/../../data/data/bla" test1 "/./../data/data/.bla"
+echo 'Starting native daemon integration tests'
+clean $STORAGE_PATH $ENCRYPTED_STORAGE_PATH
+setup $STORAGE_PATH
+edc_create_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
+edc_remove_storage $STORAGE_PATH
+clean $STORAGE_PATH $ENCRYPTED_STORAGE_PATH
+setup $STORAGE_PATH
+edc_create_storage $STORAGE_PATH $OLD_PASS $ENCRYPTED_STORAGE_PATH
+edc_unlock_storage $STORAGE_PATH $OLD_PASS
+edc_lock_storage $STORAGE_PATH
+edc_change_passwd $STORAGE_PATH $OLD_PASS $NEW_PASS
+edc_unlock_storage $STORAGE_PATH $NEW_PASS
+edc_lock_storage $STORAGE_PATH
+edc_recover_storage $STORAGE_PATH $NEW_PASS
+clean $STORAGE_PATH $ENCRYPTED_STORAGE_PATH
+clean "/data/data/bla" "/data/data/.bla"
+setup "/data/data/bla"
+edc_create_storage "/data/data/bla" bla "/data/data/.bla"
+edc_create_storage "/../../data/data/bla" test1 "/./../data/data/.bla"
+edc_remove_storage "/../../data/data/bla" test1 "/./../data/data/.bla"

@@ -123,7 +123,7 @@ static int android_encrypt_primary_data(char *password)
 {
     char data_path[MAX_PATH_LENGTH], media_path[MAX_PATH_LENGTH], buf[10];
     char lockid[32] = { 0 };
-    off_t size = 0;
+    off64_t size = 0;
     int ret = -1;
 
     property_set("crypto.primary_user", "encrypting");
@@ -160,7 +160,7 @@ static int android_encrypt_primary_data(char *password)
         return ret;
     }
     memset(buf, 0, sizeof(buf));
-    snprintf(buf, sizeof(buf), "%d", size);
+    snprintf(buf, sizeof(buf), "%ld", size);
     property_set("efs.encrypt.size", buf);
 
     /* Create secure storages for /data/data and /data/media/0 */
