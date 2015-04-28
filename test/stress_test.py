@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import difflib
+import getopt
 import os
 import random
 import re
@@ -20,6 +21,28 @@ link_count = 0
 
 MIN_FILES_TOTAL = 30
 file_count = 0
+
+""" Display help """
+def print_help():
+    print 'stress_test.py [options]'
+    print
+    print 'Builds a directory structure both inside a secure container and outside it'
+    print 'Then, it tests that both sets of files have the same attributes'
+    print
+    print 'Options:'
+    print '\t--max-files = maximum number of files on each level of the directory structure'
+    print '\t--max-level = the maximum number of levels in the directory structure'
+    print '\t--max-size  = maximum size of a single file in B (default), KB or MB'
+    print '\t              e.g. 1 = 1 Byte, 10B(no space between) = 10Bytes, 20MB = 20 Megabytes'
+    print '\t--max-links = maximum number of links in the entire directory structure'
+    print
+
+""" Try to make an int from a String """
+def str2int(s):
+    try:
+        return int(s)
+    except ValueError:
+        return None
 
 """ Wrap command in a list to be used by the subprocess module """
 def adb_command(command):
@@ -167,8 +190,58 @@ def cleanup(basepaths):
 
     subprocess.Popen(adb_command('setenforce 1')).communicate()
 
+def parse_args(argv):
+    global MAX_LEVEL, MAX_FILES, MAX_LINKS, MAX_SIZE
+    try:
+        opts, args = getopt.getopt(argv, '', ['max-level=', 'max-files=', 'max-links=', 'max-size='])
+    except getopt.GetoptError:
+        print_help()
+        sys.exit()
+
+    try:
+        """ Ugly """
+        for opt, arg in opts:
+            arg = arg.upper()
+            if opt == '--max-size':
+                if arg[-1] == 'B':
+                    arg = arg[:-1]
+                if arg[-1] == 'K':
+                    argvalue = str2int(arg[:-1])
+                    if argvalue == None:
+                        print_help()
+                        sys.exit()
+                    MAX_SIZE = argvalue * 1024
+                elif arg[-1] == 'M':
+                    argvalue = str2int(arg[:-1])
+                    if argvalue == None:
+                        print_help()
+                        sys.exit()
+                    MAX_SIZE = argvalue * 1024 * 1024
+                else:
+                    argvalue = str2int(arg)
+                    if argvalue == None:
+                        print_help()
+                        sys.exit()
+                    MAX_SIZE = argvalue
+            else:
+                argvalue = str2int(arg)
+                if argvalue == None:
+                    print_help()
+                    sys.exit()
+                if opt == '--max-level':
+                    MAX_LEVEL = argvalue
+                elif opt == '--max-files':
+                    MAX_FILES = argvalue
+                elif opt == '--max-links':
+                    MAX_LINKS = argvalue
+    except IndexError:
+        print_help()
+        sys.exit()
+
 if __name__ == '__main__':
     basepaths = ['/data/data/testn', '/data/data/teste']
+
+    parse_args(sys.argv[1:])
 
     sys.stdout.write('Checking device ........................................................... ')
     sys.stdout.flush()
@@ -176,7 +249,7 @@ if __name__ == '__main__':
                             ['adb', 'shell', 'exit'], stderr = subprocess.PIPE
                             ).communicate()
     if err != '':
-        sys.stdout.write('\n')
+        sys.stdout.write('FAILED\n')
         sys.exit()
     sys.stdout.write('DONE\n')
 
