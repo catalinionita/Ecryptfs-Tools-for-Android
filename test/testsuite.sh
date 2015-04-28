@@ -69,3 +69,8 @@ setup "/data/data/bla"
 edc_create_storage "/data/data/bla" bla "/data/data/.bla"
 edc_create_storage "/../../data/data/bla" test1 "/./../data/data/.bla"
 edc_remove_storage "/../../data/data/bla" test1 "/./../data/data/.bla"
+echo "Running progress test"
+./progress_test.sh
+echo "Running stress test"
+./stress_test.py --max-size 1MB --max-level 3 --max-files 5 --max-links 10
+
