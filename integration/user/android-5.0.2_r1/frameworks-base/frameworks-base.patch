@@ -1,42 +1,371 @@
-From 5b61b96baecc087df68e9c1f9b7eebdd4cce93f7 Mon Sep 17 00:00:00 2001
+From 7e04940fd369e85bb1c110f3eeb8a69b72d35445 Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
-Date: Mon, 23 Mar 2015 17:10:56 +0200
-Subject: [PATCH] Add EFSService
+Date: Wed, 29 Apr 2015 15:47:50 +0300
+Subject: [PATCH] Integrate multi-user encryption into framework
 
+Known issue: When locking/unlocking the user there may be processes that
+have open file descriptors inside the storage. Currently, we just kill
+these and it sometimes results in error dialogs that are not cleared and
+get to the user. Functionally, the process has already been restarted by
+the time the user sees the message.
 ---
- api/current.txt                                    | 18 ++++++++++++++++++
- services/java/com/android/server/SystemServer.java |  9 +++++++++
- 2 files changed, 27 insertions(+)
+ core/java/android/content/pm/UserInfo.java         |  8 +++
+ .../android/keyguard/KeyguardAbsKeyInputView.java  | 24 ++++++++
+ packages/SystemUI/res/values/strings.xml           |  5 ++
+ .../statusbar/policy/UserSwitcherController.java   | 71 ++++++++++++++++++----
+ .../com/android/server/pm/UserManagerService.java  | 32 +++++++++-
+ .../java/com/android/server/power/Notifier.java    | 16 +++++
+ services/java/com/android/server/SystemServer.java |  9 +++
+ 7 files changed, 151 insertions(+), 14 deletions(-)
 
-diff --git a/api/current.txt b/api/current.txt
-index fe0c209..6bf244b 100644
---- a/api/current.txt
-+++ b/api/current.txt
-@@ -22368,6 +22368,24 @@ package android.os {
+diff --git a/core/java/android/content/pm/UserInfo.java b/core/java/android/content/pm/UserInfo.java
+index c03be32..4bcd40a 100644
+--- a/core/java/android/content/pm/UserInfo.java
++++ b/core/java/android/content/pm/UserInfo.java
+@@ -75,6 +75,10 @@ public class UserInfo implements Parcelable {
+      */
+     public static final int FLAG_DISABLED = 0x00000040;
  
- package android.os.storage {
++    /**
++     * Encrypted
++     */
++    public static final int FLAG_ENCRYPTED = 0x00000080;
  
-+  public abstract interface IEFSService implements android.os.IInterface {
-+    method public abstract int changePasswordEfsStorage(java.lang.String, java.lang.String, java.lang.String) throws android.os.RemoteException;
-+    method public abstract int createEfsStorage(java.lang.String, java.lang.String) throws android.os.RemoteException;
-+    method public abstract int getEfsEncryptionProgress(java.lang.String) throws android.os.RemoteException;
-+    method public abstract int getEfsStorageStat(java.lang.String) throws android.os.RemoteException;
-+    method public abstract int lockEfsStorage(java.lang.String) throws android.os.RemoteException;
-+    method public abstract int recoverDataAndRemoveEfsStorage(java.lang.String, java.lang.String) throws android.os.RemoteException;
-+    method public abstract int removeEfsStorage(java.lang.String) throws android.os.RemoteException;
-+    method public abstract int unlockEfsStorage(java.lang.String, java.lang.String) throws android.os.RemoteException;
-+  }
+     public static final int NO_PROFILE_GROUP_ID = -1;
+ 
+@@ -127,6 +131,10 @@ public class UserInfo implements Parcelable {
+         return (flags & FLAG_DISABLED) != FLAG_DISABLED;
+     }
+ 
++    public boolean isEncrypted() {
++        return (flags & FLAG_ENCRYPTED) == FLAG_ENCRYPTED;
++    }
 +
-+  public static abstract class IEFSService.Stub extends android.os.Binder implements android.os.storage.IEFSService {
-+    ctor public IEFSService.Stub();
-+    method public android.os.IBinder asBinder();
-+    method public static android.os.storage.IEFSService asInterface(android.os.IBinder);
-+    method public boolean onTransact(int, android.os.Parcel, android.os.Parcel, int) throws android.os.RemoteException;
-+  }
+     /**
+      * @return true if this user can be switched to.
+      **/
+diff --git a/packages/Keyguard/src/com/android/keyguard/KeyguardAbsKeyInputView.java b/packages/Keyguard/src/com/android/keyguard/KeyguardAbsKeyInputView.java
+index a411df3..e1a299a 100644
+--- a/packages/Keyguard/src/com/android/keyguard/KeyguardAbsKeyInputView.java
++++ b/packages/Keyguard/src/com/android/keyguard/KeyguardAbsKeyInputView.java
+@@ -19,13 +19,20 @@ package com.android.keyguard;
+ import android.content.Context;
+ import android.graphics.drawable.Drawable;
+ import android.os.CountDownTimer;
++import android.os.IBinder;
++import android.os.ServiceManager;
+ import android.os.SystemClock;
++import android.os.storage.IEFSService;
+ import android.util.AttributeSet;
++import android.util.Log;
+ import android.view.HapticFeedbackConstants;
+ import android.view.KeyEvent;
+ import android.view.View;
+ import android.widget.LinearLayout;
+ 
++import android.app.ActivityManagerNative;
++import android.app.IActivityManager;
 +
-   public abstract class OnObbStateChangeListener {
-     ctor public OnObbStateChangeListener();
-     method public void onObbStateChange(java.lang.String, int);
+ import com.android.internal.widget.LockPatternUtils;
+ 
+ /**
+@@ -103,8 +110,25 @@ public abstract class KeyguardAbsKeyInputView extends LinearLayout
+ 
+     protected void verifyPasswordAndUnlock() {
+         String entry = getPasswordText();
++        int currentUser = mLockPatternUtils.getCurrentUser();
+         if (mLockPatternUtils.checkPassword(entry)) {
+             mCallback.reportUnlockAttempt(true);
++            final IBinder efsbinder = ServiceManager.getService("efsservice");
++            final IBinder ambinder = ServiceManager.getService("activity");
++            if (efsbinder != null && ambinder != null) {
++                final IEFSService service = IEFSService.Stub.asInterface(efsbinder);
++                final IActivityManager am = ActivityManagerNative.asInterface(ambinder);
++                if (service != null && am != null) {
++                    try {
++                        am.startUserInBackground(0);
++                        am.stopUser(currentUser, null);
++                        service.unlockUserData(0, currentUser, entry);
++                        am.startUserInBackground(currentUser);
++                    } catch (Exception e) {
++                        Log.e("EFS", "Error unlocking secure storage", e);
++                    }
++                }
++            }
+             mCallback.dismiss(true);
+         } else {
+             if (entry.length() > MINIMUM_PASSWORD_LENGTH_BEFORE_REPORT ) {
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 71b9b61..2ebf887 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -803,6 +803,11 @@
+     <!-- Message for add user confirmation dialog - short version. [CHAR LIMIT=none] -->
+     <string name="user_add_user_message_short" msgid="1511354412249044381">When you add a new user, that person needs to set up their space.\n\nAny user can update apps for all other users. </string>
+ 
++    <!-- Title for user encryption dialog [CHAR LIMIT=30] -->
++    <string name="user_encrypt_title">Encryption</string>
++
++    <!-- Message for user encryption dialog [CHAR LIMIT=none] -->
++    <string name="user_encrypt_message">Encrpyt new user?</string>
+ 
+     <!-- Battery saver notification title. [CHAR LIMIT=60]-->
+     <string name="battery_saver_notification_title">Battery saver is on</string>
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/policy/UserSwitcherController.java b/packages/SystemUI/src/com/android/systemui/statusbar/policy/UserSwitcherController.java
+index 5c7909a..4d12d89 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/policy/UserSwitcherController.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/policy/UserSwitcherController.java
+@@ -28,6 +28,9 @@ import android.content.pm.UserInfo;
+ import android.database.ContentObserver;
+ import android.graphics.Bitmap;
+ import android.graphics.drawable.Drawable;
++import android.os.IBinder;
++import android.os.storage.IEFSService;
++import android.os.ServiceManager;
+ import android.os.AsyncTask;
+ import android.os.Handler;
+ import android.os.RemoteException;
+@@ -74,6 +77,7 @@ public class UserSwitcherController {
+     private ArrayList<UserRecord> mUsers = new ArrayList<>();
+     private Dialog mExitGuestDialog;
+     private Dialog mAddUserDialog;
++    private Dialog mEncryptUserDialog;
+     private int mLastNonGuestUser = UserHandle.USER_OWNER;
+     private boolean mSimpleUserSwitcher;
+     private boolean mAddUsersWhenLocked;
+@@ -253,8 +257,16 @@ public class UserSwitcherController {
+     }
+ 
+     private void switchToUserId(int id) {
++        final IBinder binder = ServiceManager.getService("efsservice");
++        final int currentUser = ActivityManager.getCurrentUser();
++        IEFSService service = null;
++        if (binder != null)
++            service = IEFSService.Stub.asInterface(binder);
+         try {
+             ActivityManagerNative.getDefault().switchUser(id);
++            if (service != null)
++                if (mUserManager.getUserInfo(currentUser).isEncrypted())
++                    service.lockUserData(currentUser);
+         } catch (RemoteException e) {
+             Log.e(TAG, "Couldn't switch user.", e);
+         }
+@@ -276,6 +288,14 @@ public class UserSwitcherController {
+         mAddUserDialog.show();
+     }
+ 
++    private void showEncryptUserDialog() {
++        if (mEncryptUserDialog != null && mEncryptUserDialog.isShowing()) {
++            mEncryptUserDialog.cancel();
++        }
++        mEncryptUserDialog = new EncryptUserDialog(mContext);
++        mEncryptUserDialog.show();
++    }
++
+     private void exitGuest(int id) {
+         int newId = UserHandle.USER_OWNER;
+         if (mLastNonGuestUser != UserHandle.USER_OWNER) {
+@@ -574,19 +594,46 @@ public class UserSwitcherController {
+                 if (ActivityManager.isUserAMonkey()) {
+                     return;
+                 }
+-                UserInfo user = mUserManager.createSecondaryUser(
+-                        mContext.getString(R.string.user_new_user_name), 0 /* flags */);
+-                if (user == null) {
+-                    // Couldn't create user, most likely because there are too many, but we haven't
+-                    // been able to reload the list yet.
+-                    return;
+-                }
+-                int id = user.id;
+-                Bitmap icon = UserIcons.convertToBitmap(UserIcons.getDefaultUserIcon(
+-                        id, /* light= */ false));
+-                mUserManager.setUserIcon(id, icon);
+-                switchToUserId(id);
++                showEncryptUserDialog();
++            }
++        }
++    }
++
++    private final class EncryptUserDialog extends SystemUIDialog implements
++            DialogInterface.OnClickListener {
++
++        String title = "Encryption";
++        String message = "Encrypt new user?";
++
++        public EncryptUserDialog(Context context) {
++            super(context);
++            setTitle(title);
++            setMessage(message);
++            setButton(DialogInterface.BUTTON_NEGATIVE,
++                    context.getString(android.R.string.no), this);
++            setButton(DialogInterface.BUTTON_POSITIVE,
++                    context.getString(android.R.string.yes), this);
++        }
++
++        @Override
++        public void onClick(DialogInterface dialog, int which) {
++            dismiss();
++            if (ActivityManager.isUserAMonkey()) {
++                return;
++            }
++            UserInfo user = mUserManager.createSecondaryUser(
++                mContext.getString(R.string.user_new_user_name),
++                which == BUTTON_POSITIVE ? UserInfo.FLAG_ENCRYPTED : 0);
++            if (user == null) {
++                // Couldn't create user, most likely because there are too many, but we haven't
++                // been able to reload the list yet.
++                return;
+             }
++            int id = user.id;
++            Bitmap icon = UserIcons.convertToBitmap(UserIcons.getDefaultUserIcon(
++                    id, /* light= */ false));
++            mUserManager.setUserIcon(id, icon);
++            switchToUserId(id);
+         }
+     }
+ }
+diff --git a/services/core/java/com/android/server/pm/UserManagerService.java b/services/core/java/com/android/server/pm/UserManagerService.java
+index 0cf2249..8255399 100644
+--- a/services/core/java/com/android/server/pm/UserManagerService.java
++++ b/services/core/java/com/android/server/pm/UserManagerService.java
+@@ -22,6 +22,7 @@ import android.app.Activity;
+ import android.app.ActivityManager;
+ import android.app.ActivityManagerNative;
+ import android.app.IStopUserCallback;
++import android.app.admin.DevicePolicyManager;
+ import android.content.BroadcastReceiver;
+ import android.content.Context;
+ import android.content.Intent;
+@@ -37,12 +38,14 @@ import android.os.Debug;
+ import android.os.Environment;
+ import android.os.FileUtils;
+ import android.os.Handler;
++import android.os.IBinder;
+ import android.os.IUserManager;
+ import android.os.Process;
+ import android.os.RemoteException;
+ import android.os.ServiceManager;
+ import android.os.UserHandle;
+ import android.os.UserManager;
++import android.os.storage.IEFSService;
+ import android.util.AtomicFile;
+ import android.util.Log;
+ import android.util.Slog;
+@@ -54,6 +57,7 @@ import android.util.Xml;
+ import com.android.internal.app.IAppOpsService;
+ import com.android.internal.util.ArrayUtils;
+ import com.android.internal.util.FastXmlSerializer;
++import com.android.internal.widget.LockPatternUtils;
+ 
+ import org.xmlpull.v1.XmlPullParser;
+ import org.xmlpull.v1.XmlPullParserException;
+@@ -855,7 +859,7 @@ public class UserManagerService extends IUserManager.Stub {
+         }
+     }
+ 
+-    private void writeRestrictionsLocked(XmlSerializer serializer, Bundle restrictions) 
++    private void writeRestrictionsLocked(XmlSerializer serializer, Bundle restrictions)
+             throws IOException {
+         serializer.startTag(null, TAG_RESTRICTIONS);
+         writeBoolean(serializer, restrictions, UserManager.DISALLOW_CONFIG_WIFI);
+@@ -1189,9 +1193,33 @@ public class UserManagerService extends IUserManager.Stub {
+                     userInfo.partial = false;
+                     writeUserLocked(userInfo);
+                     updateUserIdsLocked();
++                    if (userInfo.isEncrypted()) {
++                        int res;
++                        final String defaultPassword = "0000";
++                        final IBinder efsbinder = ServiceManager.getService("efsservice");
++                        if (efsbinder != null) {
++                            final IEFSService efsservice = IEFSService.Stub.asInterface(efsbinder);
++                            final LockPatternUtils lpu = new LockPatternUtils(mContext);
++                            try {
++                                lpu.saveLockPassword(defaultPassword,
++                                                     DevicePolicyManager.PASSWORD_QUALITY_NUMERIC,
++                                                     false, userId);
++                                res = efsservice.createEfsStorage(userPath.toString(), defaultPassword);
++                                if (res == 0) {
++                                    /*
++                                     * TODO - Encrypt media directory... somehow
++                                     * */
++                                } else {
++                                    Log.e(LOG_TAG, "Failed to create secure storage");
++                                }
++                            } catch (Exception e) {
++                                Log.e(LOG_TAG, "Error creating secure storage", e);
++                            }
++                        }
++                    }
+                     Bundle restrictions = new Bundle();
+                     mUserRestrictions.append(userId, restrictions);
+-                }
++               }
+             }
+             if (userInfo != null) {
+                 Intent addedIntent = new Intent(Intent.ACTION_USER_ADDED);
+diff --git a/services/core/java/com/android/server/power/Notifier.java b/services/core/java/com/android/server/power/Notifier.java
+index 94a628d..cec94c0 100644
+--- a/services/core/java/com/android/server/power/Notifier.java
++++ b/services/core/java/com/android/server/power/Notifier.java
+@@ -24,6 +24,7 @@ import com.android.internal.app.IBatteryStats;
+ import com.android.server.EventLogTags;
+ import com.android.server.LocalServices;
+ 
++import android.app.ActivityManager;
+ import android.app.ActivityManagerNative;
+ import android.content.BroadcastReceiver;
+ import android.content.Context;
+@@ -35,14 +36,18 @@ import android.media.RingtoneManager;
+ import android.net.Uri;
+ import android.os.BatteryStats;
+ import android.os.Handler;
++import android.os.IBinder;
+ import android.os.Looper;
+ import android.os.Message;
+ import android.os.PowerManager;
+ import android.os.Process;
+ import android.os.RemoteException;
++import android.os.ServiceManager;
+ import android.os.SystemClock;
+ import android.os.UserHandle;
++import android.os.UserManager;
+ import android.os.WorkSource;
++import android.os.storage.IEFSService;
+ import android.provider.Settings;
+ import android.util.EventLog;
+ import android.util.Slog;
+@@ -87,6 +92,7 @@ final class Notifier {
+     private final WindowManagerPolicy mPolicy;
+     private final ActivityManagerInternal mActivityManagerInternal;
+     private final InputManagerInternal mInputManagerInternal;
++    private final UserManager mUserManager;
+ 
+     private final NotifierHandler mHandler;
+     private final Intent mScreenOnIntent;
+@@ -119,6 +125,7 @@ final class Notifier {
+         mPolicy = policy;
+         mActivityManagerInternal = LocalServices.getService(ActivityManagerInternal.class);
+         mInputManagerInternal = LocalServices.getService(InputManagerInternal.class);
++		 mUserManager = UserManager.get(context);
+ 
+         mHandler = new NotifierHandler(looper);
+         mScreenOnIntent = new Intent(Intent.ACTION_SCREEN_ON);
+@@ -320,6 +327,15 @@ final class Notifier {
+         }
+ 
+         if (!interactive) {
++            final IBinder binder = ServiceManager.getService("efsservice");
++            final int currentUser = ActivityManager.getCurrentUser();
++            if (binder != null) {
++                final IEFSService service = IEFSService.Stub.asInterface(binder);
++                try {
++                    if (service != null && mUserManager.getUserInfo(currentUser).isEncrypted())
++                        service.lockUserData(currentUser);
++                } catch (RemoteException ex) {}
++            }
+             try {
+                 mBatteryStats.noteInteractive(false);
+             } catch (RemoteException ex) { }
 diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
 index 22f6ca4..8564364 100644
 --- a/services/java/com/android/server/SystemServer.java

@@ -27,6 +27,7 @@ case $version in
         git apply "$basepath/$version/sepolicy/sepolicy.patch" --directory=external/sepolicy
         cp "$basepath/$version/sepolicy/efs.te" external/sepolicy/
         git apply "$basepath/$version/build/build.patch" --directory=build/
+        git apply "$basepath/$version/settings/settings.patch" --directory=packages/apps/Settings/
         ;;
     "android-4.4.4_r2")
         cp "$basepath/$version/vold/EncryptedFileStorageCmd.cpp" system/vold/

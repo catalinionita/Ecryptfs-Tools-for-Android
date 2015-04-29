@@ -19,6 +19,8 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -434,12 +436,24 @@ int android_unlock_user_data(int from_init, int user, char *password)
 int android_lock_user_data(int user)
 {
     char storage_path[MAX_PATH_LENGTH];
-    int ret;
+    int ret, prio;
+    time_t start_time;
 
     LOGI("Lock user %d", user);
     memset(storage_path, 0, sizeof(storage_path));
     sprintf(storage_path, "%s%d/", ANDROID_USER_DATA_PATH, user);
-    ret = EFS_lock(storage_path);
+
+    prio = getpriority(PRIO_PROCESS, 0);
+    setpriority(PRIO_PROCESS, 0, -20);
+    
+    start_time = time(NULL);
+    do {    
+        killProcessesWithOpenFiles(storage_path, 2);
+        ret = EFS_lock(storage_path);
+    } while (ret < 0 && time(NULL) - start_time < 30);
+    
+    setpriority(PRIO_PROCESS, 0, prio);
+    
     if (ret < 0) {
         LOGE("Error locking efs storage");
         return ret;
@@ -447,7 +461,18 @@ int android_lock_user_data(int user)
 
     memset(storage_path, 0, sizeof(storage_path));
     sprintf(storage_path, "%s%d/", ANDROID_VIRTUAL_SDCARD_PATH, user);
-    EFS_lock(storage_path);
+    
+    prio = getpriority(PRIO_PROCESS, 0);
+    setpriority(PRIO_PROCESS, 0, -20);
+    
+    start_time = time(NULL);
+    do {    
+        killProcessesWithOpenFiles(storage_path, 2);
+        ret = EFS_lock(storage_path);
+    } while (ret < 0 && time(NULL) - start_time < 30);
+    
+    setpriority(PRIO_PROCESS, 0, prio);
+    
     if (ret < 0) {
         LOGE("Error locking efs storage");
         return ret;
