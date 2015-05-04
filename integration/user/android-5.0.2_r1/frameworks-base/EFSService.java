@@ -191,5 +191,111 @@ public class EFSService extends IEFSService.Stub
         }
         return rc;
     }
+    
+    public int encryptUserData(int userId, String password) {
+        int rc = StorageResultCode.OperationSucceeded;
+        final NativeDaemonEvent event;
+        try {
+            event = mConnector.execute("efs-server", "encrypt_user_data", userId, password);
+            return Integer.parseInt(event.getMessage());
+        } catch (NativeDaemonConnectorException e) {
+            int code = e.getCode();
+            if (code != OpFailedStorageBusy) {
+                rc = StorageResultCode.OperationFailedInternalError;
+            }
+        }
+        return rc;
+    }
+
+    public int unlockUserData(int fromInit, int userId, String password) {
+        int rc = StorageResultCode.OperationSucceeded;
+        final NativeDaemonEvent event;
+        try {
+            event = mConnector.execute("efs-server", "unlock_user_data", fromInit, userId, password);
+            return Integer.parseInt(event.getMessage());
+        } catch (NativeDaemonConnectorException e) {
+            int code = e.getCode();
+            if (code != OpFailedStorageBusy) {
+                rc = StorageResultCode.OperationFailedInternalError;
+            }
+        }
+        return rc;
+    }
+
+
+    public int lockUserData(int userId) {
+        int rc = StorageResultCode.OperationSucceeded;
+        final NativeDaemonEvent event;
+        try {
+            event = mConnector.execute("efs-server", "lock_user_data", userId);
+            return Integer.parseInt(event.getMessage());
+        } catch (NativeDaemonConnectorException e) {
+            int code = e.getCode();
+            if (code != OpFailedStorageBusy) {
+                rc = StorageResultCode.OperationFailedInternalError;
+            }
+        }
+        return rc;
+    }
+
+    public int changeUserDataPassword(int userId, String oldPassword, String newPassword) {
+        int rc = StorageResultCode.OperationSucceeded;
+        final NativeDaemonEvent event;
+        try {
+            event = mConnector.execute("efs-server", "change_user_data_passwd", userId, oldPassword, newPassword);
+            return Integer.parseInt(event.getMessage());
+        } catch (NativeDaemonConnectorException e) {
+            int code = e.getCode();
+            if (code != OpFailedStorageBusy) {
+                rc = StorageResultCode.OperationFailedInternalError;
+            }
+        }
+        return rc;
+    }
+
+    public int removeUserEncryptedData(int userId) {
+        int rc = StorageResultCode.OperationSucceeded;
+        final NativeDaemonEvent event;
+        try {
+            event = mConnector.execute("efs-server", "remove_user_encrypted_data", userId);
+            return Integer.parseInt(event.getMessage());
+        } catch (NativeDaemonConnectorException e) {
+            int code = e.getCode();
+            if (code != OpFailedStorageBusy) {
+                rc = StorageResultCode.OperationFailedInternalError;
+            }
+        }
+        return rc;
+    }
+
+    public int decryptUserData(int userId, String password) {
+        int rc = StorageResultCode.OperationSucceeded;
+        final NativeDaemonEvent event;
+        try {
+            event = mConnector.execute("efs-server", "decrypt_user_data", userId, password);
+            return Integer.parseInt(event.getMessage());
+        } catch (NativeDaemonConnectorException e) {
+            int code = e.getCode();
+            if (code != OpFailedStorageBusy) {
+                rc = StorageResultCode.OperationFailedInternalError;
+            }
+        }
+        return rc;
+    }
+
+    public int getUserEncryptedDataStat(int userId) {
+        int rc = StorageResultCode.OperationSucceeded;
+        final NativeDaemonEvent event;
+        try {
+            event = mConnector.execute("efs-server", "user_stat", userId);
+            return Integer.parseInt(event.getMessage());
+        } catch (NativeDaemonConnectorException e) {
+            int code = e.getCode();
+            if (code != OpFailedStorageBusy) {
+                rc = StorageResultCode.OperationFailedInternalError;
+            }
+        }
+        return rc;
+    }
 }
 
