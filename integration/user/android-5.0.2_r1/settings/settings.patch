@@ -1,4 +1,4 @@
-From 32a45946639b58d365bea649b65910b6311d0428 Mon Sep 17 00:00:00 2001
+From 5cf4b38e4adf64e1ae8b0d48e1ce4317f57ede5b Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
 Date: Wed, 29 Apr 2015 16:16:36 +0300
 Subject: [PATCH] Integrate multi-user encryption into Settings app
@@ -9,10 +9,10 @@ activity than the one where the new password is introduced, we have to
 pass it between activities.
 ---
  res/values/strings.xml                            |  3 ++
- src/com/android/settings/ChooseLockPassword.java  | 16 ++++++++
+ src/com/android/settings/ChooseLockPassword.java  | 16 ++++++
  src/com/android/settings/ConfirmLockPassword.java |  3 ++
- src/com/android/settings/users/UserSettings.java  | 48 +++++++++++++++++++----
- 4 files changed, 63 insertions(+), 7 deletions(-)
+ src/com/android/settings/users/UserSettings.java  | 59 ++++++++++++++++++++---
+ 4 files changed, 74 insertions(+), 7 deletions(-)
 
 diff --git a/res/values/strings.xml b/res/values/strings.xml
 index 0a139d5..c7237c1 100644
@@ -78,18 +78,20 @@ index c74e861..0004945 100644
                  if (getActivity() instanceof ConfirmLockPassword.InternalActivity) {
                      intent.putExtra(ChooseLockSettingsHelper.EXTRA_KEY_TYPE,
 diff --git a/src/com/android/settings/users/UserSettings.java b/src/com/android/settings/users/UserSettings.java
-index b95c397..f9cf648 100644
+index b95c397..9ebac88 100644
 --- a/src/com/android/settings/users/UserSettings.java
 +++ b/src/com/android/settings/users/UserSettings.java
-@@ -19,6 +19,7 @@ package com.android.settings.users;
+@@ -19,7 +19,9 @@ package com.android.settings.users;
  import android.accounts.Account;
  import android.accounts.AccountManager;
  import android.app.Activity;
 +import android.app.ActivityManager;
  import android.app.ActivityManagerNative;
++import android.app.IActivityManager;
  import android.app.AlertDialog;
  import android.app.Dialog;
-@@ -37,10 +38,13 @@ import android.graphics.drawable.Drawable;
+ import android.app.Fragment;
+@@ -37,10 +39,13 @@ import android.graphics.drawable.Drawable;
  import android.os.AsyncTask;
  import android.os.Bundle;
  import android.os.Handler;
@@ -103,7 +105,7 @@ index b95c397..f9cf648 100644
  import android.preference.Preference;
  import android.preference.Preference.OnPreferenceClickListener;
  import android.preference.PreferenceGroup;
-@@ -106,6 +110,7 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -106,6 +111,7 @@ public class UserSettings extends SettingsPreferenceFragment
      private static final int DIALOG_NEED_LOCKSCREEN = 7;
      private static final int DIALOG_CONFIRM_EXIT_GUEST = 8;
      private static final int DIALOG_USER_PROFILE_EDITOR = 9;
@@ -111,7 +113,7 @@ index b95c397..f9cf648 100644
  
      private static final int MESSAGE_UPDATE_LIST = 1;
      private static final int MESSAGE_SETUP_USER = 2;
-@@ -361,7 +366,7 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -361,7 +367,7 @@ public class UserSettings extends SettingsPreferenceFragment
  
          if (requestCode == REQUEST_CHOOSE_LOCK) {
              if (resultCode != Activity.RESULT_CANCELED && hasLockscreenSecurity()) {
@@ -120,7 +122,7 @@ index b95c397..f9cf648 100644
              }
          } else {
              mEditUserInfoController.onActivityResult(requestCode, resultCode, data);
-@@ -377,7 +382,7 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -377,7 +383,7 @@ public class UserSettings extends SettingsPreferenceFragment
                      break;
                  case USER_TYPE_RESTRICTED_PROFILE:
                      if (hasLockscreenSecurity()) {
@@ -129,7 +131,7 @@ index b95c397..f9cf648 100644
                      } else {
                          showDialog(DIALOG_NEED_LOCKSCREEN);
                      }
-@@ -420,9 +425,10 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -420,9 +426,10 @@ public class UserSettings extends SettingsPreferenceFragment
          return newUserInfo;
      }
  
@@ -142,7 +144,7 @@ index b95c397..f9cf648 100644
          if (newUserInfo != null) {
              assignDefaultPhoto(newUserInfo);
          }
-@@ -525,7 +531,7 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -525,7 +532,7 @@ public class UserSettings extends SettingsPreferenceFragment
                      .setPositiveButton(android.R.string.ok,
                          new DialogInterface.OnClickListener() {
                              public void onClick(DialogInterface dialog, int which) {
@@ -151,7 +153,7 @@ index b95c397..f9cf648 100644
                                  if (!longMessageDisplayed) {
                                      preferences.edit().putBoolean(
                                              KEY_ADD_USER_LONG_MESSAGE_DISPLAYED, true).apply();
-@@ -588,6 +594,27 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -588,6 +595,27 @@ public class UserSettings extends SettingsPreferenceFragment
                          .create();
                  return dlg;
              }
@@ -179,7 +181,7 @@ index b95c397..f9cf648 100644
              case DIALOG_NEED_LOCKSCREEN: {
                  Dialog dlg = new AlertDialog.Builder(context)
                          .setMessage(R.string.user_need_lock_message)
-@@ -657,7 +684,7 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -657,7 +685,7 @@ public class UserSettings extends SettingsPreferenceFragment
          }
      }
  
@@ -188,7 +190,7 @@ index b95c397..f9cf648 100644
          synchronized (mUserLock) {
              mAddingUser = true;
              //updateUserList();
-@@ -666,7 +693,7 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -666,7 +694,7 @@ public class UserSettings extends SettingsPreferenceFragment
                      UserInfo user = null;
                      // Could take a few seconds
                      if (userType == USER_TYPE_USER) {
@@ -197,16 +199,26 @@ index b95c397..f9cf648 100644
                      } else {
                          user = createLimitedUser();
                      }
-@@ -687,8 +714,15 @@ public class UserSettings extends SettingsPreferenceFragment
+@@ -687,8 +715,25 @@ public class UserSettings extends SettingsPreferenceFragment
      }
  
      private void switchUserNow(int userId) {
 +        final IBinder binder = ServiceManager.getService("efsservice");
++        final IBinder ambinder = ServiceManager.getService("activity");
 +        final int currentUser = ActivityManager.getCurrentUser();
 +        IEFSService service = null;
-+        if (binder != null)
++        IActivityManager am = null;
++        if (binder != null && ambinder != null) {
 +            service = IEFSService.Stub.asInterface(binder);
++            am = ActivityManagerNative.asInterface(ambinder);
++        }
          try {
++            if (am != null) {
++                if (mUserManager.getUserInfo(userId).isEncrypted())
++                    am.setShowDialogs(false);
++                else
++                    am.setShowDialogs(true);
++            }
              ActivityManagerNative.getDefault().switchUser(userId);
 +            if (service != null && mUserManager.getUserInfo(currentUser).isEncrypted())
 +                service.lockUserData(currentUser);

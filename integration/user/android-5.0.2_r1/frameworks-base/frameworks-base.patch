@@ -1,23 +1,86 @@
-From 7e04940fd369e85bb1c110f3eeb8a69b72d35445 Mon Sep 17 00:00:00 2001
+From b816c546c9e49818757f2448559edea7f8bc5d52 Mon Sep 17 00:00:00 2001
 From: Nicolae-Alexandru Ivan <alexandru.ivan@intel.com>
 Date: Wed, 29 Apr 2015 15:47:50 +0300
 Subject: [PATCH] Integrate multi-user encryption into framework
 
 Known issue: When locking/unlocking the user there may be processes that
 have open file descriptors inside the storage. Currently, we just kill
-these and it sometimes results in error dialogs that are not cleared and
-get to the user. Functionally, the process has already been restarted by
-the time the user sees the message.
+these and they are restarted by the system.
+We work around the error dialogs that would normally be displayed to the
+user by temporarily disabling all dialogs. This is done by adding a
+method to the ActivityManager service. Alternatively, we could use the
+service's configuration function, but it would be too much overhead and
+could lead to other apps/services reading an incorrect config.
 ---
+ core/java/android/app/ActivityManagerNative.java   | 20 ++++++
+ core/java/android/app/IActivityManager.java        |  4 ++
  core/java/android/content/pm/UserInfo.java         |  8 +++
- .../android/keyguard/KeyguardAbsKeyInputView.java  | 24 ++++++++
+ .../android/keyguard/KeyguardAbsKeyInputView.java  | 25 +++++++
  packages/SystemUI/res/values/strings.xml           |  5 ++
- .../statusbar/policy/UserSwitcherController.java   | 71 ++++++++++++++++++----
- .../com/android/server/pm/UserManagerService.java  | 32 +++++++++-
- .../java/com/android/server/power/Notifier.java    | 16 +++++
+ .../statusbar/policy/UserSwitcherController.java   | 82 ++++++++++++++++++----
+ .../android/server/am/ActivityManagerService.java  |  5 ++
+ .../com/android/server/pm/UserManagerService.java  | 32 ++++++++-
+ .../java/com/android/server/power/Notifier.java    | 21 ++++++
  services/java/com/android/server/SystemServer.java |  9 +++
- 7 files changed, 151 insertions(+), 14 deletions(-)
+ 10 files changed, 197 insertions(+), 14 deletions(-)
 
+diff --git a/core/java/android/app/ActivityManagerNative.java b/core/java/android/app/ActivityManagerNative.java
+index 4e2ff0b..ce7da15 100644
+--- a/core/java/android/app/ActivityManagerNative.java
++++ b/core/java/android/app/ActivityManagerNative.java
+@@ -2329,6 +2329,14 @@ public abstract class ActivityManagerNative extends Binder implements IActivityM
+             reply.writeNoException();
+             return true;
+         }
++
++        case SET_DIALOG_SHOW_TRANSACTION: {
++            data.enforceInterface(IActivityManager.descriptor);
++            boolean value = data.readInt() == 1 ? true : false;
++            setShowDialogs(value);
++            reply.writeNoException();
++            return true;
++        }
+         }
+ 
+         return super.onTransact(code, data, reply, flags);
+@@ -5378,5 +5386,17 @@ class ActivityManagerProxy implements IActivityManager
+         reply.recycle();
+     }
+ 
++    public void setShowDialogs(boolean value) throws RemoteException {
++        Log.e("ActivityManager", "Here");
++        Parcel data = Parcel.obtain();
++        Parcel reply = Parcel.obtain();
++        data.writeInterfaceToken(IActivityManager.descriptor);
++        data.writeInt(value ? 1 : 0);
++        mRemote.transact(SET_DIALOG_SHOW_TRANSACTION, data, reply, 0);
++        reply.readException();
++        data.recycle();
++        reply.recycle();
++}
++
+     private IBinder mRemote;
+ }
+diff --git a/core/java/android/app/IActivityManager.java b/core/java/android/app/IActivityManager.java
+index be26f30..f6403c0 100644
+--- a/core/java/android/app/IActivityManager.java
++++ b/core/java/android/app/IActivityManager.java
+@@ -463,6 +463,8 @@ public interface IActivityManager extends IInterface {
+     public void notifyLaunchTaskBehindComplete(IBinder token) throws RemoteException;
+     public void notifyEnterAnimationComplete(IBinder token) throws RemoteException;
+ 
++    public void setShowDialogs(boolean value) throws RemoteException;
++
+     /*
+      * Private non-Binder interfaces
+      */
+@@ -781,4 +783,6 @@ public interface IActivityManager extends IInterface {
+     int BOOT_ANIMATION_COMPLETE_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+237;
+     int GET_TASK_DESCRIPTION_ICON_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+238;
+     int LAUNCH_ASSIST_INTENT_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+239;
++
++    int SET_DIALOG_SHOW_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+240;
+ }
 diff --git a/core/java/android/content/pm/UserInfo.java b/core/java/android/content/pm/UserInfo.java
 index c03be32..4bcd40a 100644
 --- a/core/java/android/content/pm/UserInfo.java
@@ -45,7 +108,7 @@ index c03be32..4bcd40a 100644
       * @return true if this user can be switched to.
       **/
 diff --git a/packages/Keyguard/src/com/android/keyguard/KeyguardAbsKeyInputView.java b/packages/Keyguard/src/com/android/keyguard/KeyguardAbsKeyInputView.java
-index a411df3..e1a299a 100644
+index a411df3..fe66172 100644
 --- a/packages/Keyguard/src/com/android/keyguard/KeyguardAbsKeyInputView.java
 +++ b/packages/Keyguard/src/com/android/keyguard/KeyguardAbsKeyInputView.java
 @@ -19,13 +19,20 @@ package com.android.keyguard;
@@ -69,7 +132,7 @@ index a411df3..e1a299a 100644
  import com.android.internal.widget.LockPatternUtils;
  
  /**
-@@ -103,8 +110,25 @@ public abstract class KeyguardAbsKeyInputView extends LinearLayout
+@@ -103,8 +110,26 @@ public abstract class KeyguardAbsKeyInputView extends LinearLayout
  
      protected void verifyPasswordAndUnlock() {
          String entry = getPasswordText();
@@ -87,6 +150,7 @@ index a411df3..e1a299a 100644
 +                        am.stopUser(currentUser, null);
 +                        service.unlockUserData(0, currentUser, entry);
 +                        am.startUserInBackground(currentUser);
++                        am.setShowDialogs(true);
 +                    } catch (Exception e) {
 +                        Log.e("EFS", "Error unlocking secure storage", e);
 +                    }
@@ -112,10 +176,18 @@ index 71b9b61..2ebf887 100644
      <!-- Battery saver notification title. [CHAR LIMIT=60]-->
      <string name="battery_saver_notification_title">Battery saver is on</string>
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/policy/UserSwitcherController.java b/packages/SystemUI/src/com/android/systemui/statusbar/policy/UserSwitcherController.java
-index 5c7909a..4d12d89 100644
+index 5c7909a..5ee00a7 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/policy/UserSwitcherController.java
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/policy/UserSwitcherController.java
-@@ -28,6 +28,9 @@ import android.content.pm.UserInfo;
+@@ -18,6 +18,7 @@ package com.android.systemui.statusbar.policy;
+ 
+ import android.app.ActivityManager;
+ import android.app.ActivityManagerNative;
++import android.app.IActivityManager;
+ import android.app.Dialog;
+ import android.content.BroadcastReceiver;
+ import android.content.Context;
+@@ -28,6 +29,9 @@ import android.content.pm.UserInfo;
  import android.database.ContentObserver;
  import android.graphics.Bitmap;
  import android.graphics.drawable.Drawable;
@@ -125,7 +197,7 @@ index 5c7909a..4d12d89 100644
  import android.os.AsyncTask;
  import android.os.Handler;
  import android.os.RemoteException;
-@@ -74,6 +77,7 @@ public class UserSwitcherController {
+@@ -74,6 +78,7 @@ public class UserSwitcherController {
      private ArrayList<UserRecord> mUsers = new ArrayList<>();
      private Dialog mExitGuestDialog;
      private Dialog mAddUserDialog;
@@ -133,24 +205,34 @@ index 5c7909a..4d12d89 100644
      private int mLastNonGuestUser = UserHandle.USER_OWNER;
      private boolean mSimpleUserSwitcher;
      private boolean mAddUsersWhenLocked;
-@@ -253,8 +257,16 @@ public class UserSwitcherController {
+@@ -253,8 +258,26 @@ public class UserSwitcherController {
      }
  
      private void switchToUserId(int id) {
 +        final IBinder binder = ServiceManager.getService("efsservice");
++        final IBinder ambinder = ServiceManager.getService("activity");
 +        final int currentUser = ActivityManager.getCurrentUser();
 +        IEFSService service = null;
-+        if (binder != null)
++        IActivityManager am = null;
++        if (binder != null && ambinder != null) {
 +            service = IEFSService.Stub.asInterface(binder);
++            am = ActivityManagerNative.asInterface(ambinder);
++        }
          try {
              ActivityManagerNative.getDefault().switchUser(id);
++            if (am != null) {
++                if (mUserManager.getUserInfo(id).isEncrypted())
++                    am.setShowDialogs(false);
++                else
++                    am.setShowDialogs(true);
++            }
 +            if (service != null)
 +                if (mUserManager.getUserInfo(currentUser).isEncrypted())
 +                    service.lockUserData(currentUser);
          } catch (RemoteException e) {
              Log.e(TAG, "Couldn't switch user.", e);
          }
-@@ -276,6 +288,14 @@ public class UserSwitcherController {
+@@ -276,6 +299,14 @@ public class UserSwitcherController {
          mAddUserDialog.show();
      }
  
@@ -165,7 +247,7 @@ index 5c7909a..4d12d89 100644
      private void exitGuest(int id) {
          int newId = UserHandle.USER_OWNER;
          if (mLastNonGuestUser != UserHandle.USER_OWNER) {
-@@ -574,19 +594,46 @@ public class UserSwitcherController {
+@@ -574,19 +605,46 @@ public class UserSwitcherController {
                  if (ActivityManager.isUserAMonkey()) {
                      return;
                  }
@@ -224,6 +306,22 @@ index 5c7909a..4d12d89 100644
          }
      }
  }
+diff --git a/services/core/java/com/android/server/am/ActivityManagerService.java b/services/core/java/com/android/server/am/ActivityManagerService.java
+index 8dfb321..44f3bca 100755
+--- a/services/core/java/com/android/server/am/ActivityManagerService.java
++++ b/services/core/java/com/android/server/am/ActivityManagerService.java
+@@ -12124,6 +12124,11 @@ public final class ActivityManagerService extends ActivityManagerNative
+         }
+     }
+ 
++    @Override
++    public void setShowDialogs(boolean value) {
++        mShowDialogs = value;
++    }
++
+     Intent createAppErrorIntentLocked(ProcessRecord r,
+             long timeMillis, ApplicationErrorReport.CrashInfo crashInfo) {
+         ApplicationErrorReport report = createAppErrorReportLocked(r, timeMillis, crashInfo);
 diff --git a/services/core/java/com/android/server/pm/UserManagerService.java b/services/core/java/com/android/server/pm/UserManagerService.java
 index 0cf2249..8255399 100644
 --- a/services/core/java/com/android/server/pm/UserManagerService.java
@@ -304,18 +402,20 @@ index 0cf2249..8255399 100644
              if (userInfo != null) {
                  Intent addedIntent = new Intent(Intent.ACTION_USER_ADDED);
 diff --git a/services/core/java/com/android/server/power/Notifier.java b/services/core/java/com/android/server/power/Notifier.java
-index 94a628d..cec94c0 100644
+index 94a628d..d936bbf 100644
 --- a/services/core/java/com/android/server/power/Notifier.java
 +++ b/services/core/java/com/android/server/power/Notifier.java
-@@ -24,6 +24,7 @@ import com.android.internal.app.IBatteryStats;
+@@ -24,7 +24,9 @@ import com.android.internal.app.IBatteryStats;
  import com.android.server.EventLogTags;
  import com.android.server.LocalServices;
  
 +import android.app.ActivityManager;
  import android.app.ActivityManagerNative;
++import android.app.IActivityManager;
  import android.content.BroadcastReceiver;
  import android.content.Context;
-@@ -35,14 +36,18 @@ import android.media.RingtoneManager;
+ import android.content.Intent;
+@@ -35,14 +37,18 @@ import android.media.RingtoneManager;
  import android.net.Uri;
  import android.os.BatteryStats;
  import android.os.Handler;
@@ -334,31 +434,35 @@ index 94a628d..cec94c0 100644
  import android.provider.Settings;
  import android.util.EventLog;
  import android.util.Slog;
-@@ -87,6 +92,7 @@ final class Notifier {
+@@ -87,6 +93,7 @@ final class Notifier {
      private final WindowManagerPolicy mPolicy;
      private final ActivityManagerInternal mActivityManagerInternal;
      private final InputManagerInternal mInputManagerInternal;
-+    private final UserManager mUserManager;
++	private final UserManager mUserManager;
  
      private final NotifierHandler mHandler;
      private final Intent mScreenOnIntent;
-@@ -119,6 +125,7 @@ final class Notifier {
+@@ -119,6 +126,7 @@ final class Notifier {
          mPolicy = policy;
          mActivityManagerInternal = LocalServices.getService(ActivityManagerInternal.class);
          mInputManagerInternal = LocalServices.getService(InputManagerInternal.class);
-+		 mUserManager = UserManager.get(context);
++		mUserManager = UserManager.get(context);
  
          mHandler = new NotifierHandler(looper);
          mScreenOnIntent = new Intent(Intent.ACTION_SCREEN_ON);
-@@ -320,6 +327,15 @@ final class Notifier {
+@@ -320,6 +328,19 @@ final class Notifier {
          }
  
          if (!interactive) {
 +            final IBinder binder = ServiceManager.getService("efsservice");
++            final IBinder ambinder = ServiceManager.getService("activity");
 +            final int currentUser = ActivityManager.getCurrentUser();
-+            if (binder != null) {
++            if (binder != null && ambinder != null) {
 +                final IEFSService service = IEFSService.Stub.asInterface(binder);
++                final IActivityManager am = ActivityManagerNative.asInterface(ambinder);
 +                try {
++                    if (am != null && mUserManager.getUserInfo(currentUser).isEncrypted())
++                        am.setShowDialogs(false);
 +                    if (service != null && mUserManager.getUserInfo(currentUser).isEncrypted())
 +                        service.lockUserData(currentUser);
 +                } catch (RemoteException ex) {}
